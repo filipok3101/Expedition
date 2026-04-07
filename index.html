@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏍️ Expedition 🚗</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<script src="script.js" defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏍️ Expedition 🚗</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script type="module" src="js/main.js" defer></script>
 </head>
 <body>  
 
@@ -19,7 +20,7 @@
     <div class="setup-content">
         <div class="setup-left">
             <h3>Dodawanie przystanków na trasie</h3>
-            <p>Wprowadź szerokość i długość geograficzną oraz nazwę miejsca, nastęonie kliknij "DODAJ MIEJSCE"</p>
+            <p>Wprowadź szerokość i długość geograficzną oraz nazwę miejsca, następnie kliknij "DODAJ MIEJSCE"</p>
             <div id="destination-inputs">
                 <input type="text" id="latitude" placeholder="Szerokość geograficzna">
                 <input type="text" id="longitude" placeholder="Długość geograficzna">
@@ -30,8 +31,8 @@
                     <option value="ferry">⛴️</option>
                     <option value="train">🚂</option>
                 </select>
+                <button class="btn" id="btn-add-destination">+ DODAJ MIEJSCE</button>
             </div>
-    <button class="btn" onclick="addDestination()">+ DODAJ MIEJSCE</button>
         </div>
         <div class="setup-right">
             <h3>Twoja trasa</h3>
@@ -43,9 +44,10 @@
     
     <div class="setup-footer">
         <p>Po dodaniu wszystkich miejsc docelowych, kliknij "DALEJ" aby kontynuować!</p>
-    <button id="btn-next" class="btn btn-start" onclick="goToAdvanced()" disabled>DALEJ</button>
+        <button class="btn" id="btn-next" disabled>DALEJ</button>
+    </div>
 </div>
-</div>
+
 <div id="advanced-screen" style="display:none">
     <div id="setup-header">
         <h2>🪙 Koszty i spalanie ⛽</h2>
@@ -55,23 +57,20 @@
         <div class="setup-left">
             <h3>Spalanie (l/100km)</h3>
             <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;">Dla promu i pociągu możesz wpisać 0.</p>
-            <div id="transport-consumption-list">
-                </div>
+            <div id="transport-consumption-list"></div>
         </div>
-    <div class="setup-right">
+        <div class="setup-right">
             <h3>Ceny paliwa w państwach na trasie:</h3>
-            <div id="countries-fuel-list">
-                </div>
+            <div id="countries-fuel-list"></div>
         </div>
     </div>
 
     <div class="setup-footer">
         <p>Wszystko gotowe? Kliknij "START PODRÓŻY"!</p>
-        <button class="btn btn-start" onclick="backToSetup()">POWRÓT</button>
-        <button id="btn-start-sim" class="btn btn-start" onclick="startFinalJourney()" disabled>START PODRÓŻY</button>
+        <button class="btn btn-start" id="btn-back-setup">POWRÓT</button>
+        <button id="btn-start-sim" class="btn btn-start" disabled>START PODRÓŻY</button>
     </div>
 </div>
-
 
 <div id="app" style="display:none">
     <div id="main-panel">
@@ -94,7 +93,7 @@
         </div>
         <div id="header">
             <h2>🏍️ Expedition 🚗</h2>
-                <h1 id="route-title"></h1>
+            <h1 id="route-title"></h1>
         </div>
         <div id="controls-bottom">
             <div class="progress-container">
@@ -105,13 +104,12 @@
                         <div class="info-text">
                             <div id="info-stage">GOTOWY DO STARTU</div>
                             <div id="info-sub">Skonfiguruj trasę i naciśnij start</div>
-                            
                         </div>
                     </div>
                     <div class="speed-controls">
-                        <button class="btn btn-icon" onclick="changeSpeed(-1)">⏪</button>
+                        <button class="btn btn-icon" id="btn-speed-down">⏪</button>
                         <span id="speed-label" class="speed-label">1×</span>
-                        <button class="btn btn-icon" onclick="changeSpeed(1)">⏩</button>
+                        <button class="btn btn-icon" id="btn-speed-up">⏩</button>
                     </div>
                 </div>
             </div>
@@ -122,15 +120,12 @@
         <div id="right-header">
             <h2>TRASA</h2>
             <div style="display:flex; gap:10px;">
-                <button class="btn" id="playBtn" onclick="togglePlay()">▶ START</button>
-                <button class="btn" onclick="resetJourney()" style="padding: 10px;" title="Reset">🔄</button>
-            </div>
-        </div>
-        <div id="stop-list">
-            </div>
+                <button class="btn" id="playBtn">▶ START</button>
+                <button class="btn" id="resetBtn" style="padding: 10px;" title="Reset">🔄</button>
+            </div> </div>  
+        <div id="stop-list"></div>
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </body>
 </html>
