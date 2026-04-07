@@ -3,6 +3,7 @@
 // Inicjalizuje mapę, kontrolki i eksponuje funkcje globalnie
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
+import { translations} from './translations.js';
 import { preloadRoutes } from './routing.js';
 import { animStep, startSegment, finishJourney, placeFlag } from './animation.js';
 import {
@@ -154,7 +155,42 @@ export function resetJourney() {
     S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 4, { animate: true });
 }
 
-// Upewniamy się, że cały HTML się załadował przed podpięciem zdarzeń
+// ══════════════════════════════════════════════════════════
+// SYSTEM TŁUMACZEŃ (i18n)
+// ══════════════════════════════════════════════════════════
+export let currentLang = 'en'; // Angielski jako domyślny
+
+export function changeLanguage(lang) {
+    currentLang = lang;
+    
+    // 1. Podmiana tekstów w HTML
+    const elements = document.querySelectorAll('[data-i18n]');
+    elements.forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const translatedText = translations[currentLang][key];
+        
+        if (translatedText) {
+            if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
+                el.placeholder = translatedText;
+            } else {
+                el.textContent = translatedText;
+            }
+        }
+    });
+
+    // 2. Aktualizacja wyglądu przycisków PL / EN (żeby było widać, co jest wciśnięte)
+    const btnEn = document.getElementById('btn-en');
+    const btnPl = document.getElementById('btn-pl');
+    
+    if (btnEn && btnPl) {
+        btnEn.style.background = lang === 'en' ? 'var(--accent)' : 'var(--panel2)';
+        btnEn.style.color = lang === 'en' ? 'var(--bg)' : 'var(--text)';
+        
+        btnPl.style.background = lang === 'pl' ? 'var(--accent)' : 'var(--panel2)';
+        btnPl.style.color = lang === 'pl' ? 'var(--bg)' : 'var(--text)';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     
     // --- Ekran 1: Dodawanie przystanków ---
@@ -172,6 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Przyciski prędkości ---
     document.getElementById('btn-speed-down').addEventListener('click', () => changeSpeed(-1));
     document.getElementById('btn-speed-up').addEventListener('click', () => changeSpeed(1));
+    document.getElementById('btn-pl').addEventListener('click', () => changeLanguage('pl'));
+    document.getElementById('btn-en').addEventListener('click', () => changeLanguage('en'));
+    
+    // Wymuś język domyślny po załadowaniu strony
+    changeLanguage('en');
 
 });
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,61 +14,65 @@
 
 <div id="setup-screen">
     <div id="setup-header">
-        <h2>🏍️ Expedition 🚗</h2>
-        <p>Witaj w symulatorze podróży - stwórz swoją wymarzoną trasę!</p>
+        <h2 data-i18n="app_title">🏍️ Expedition 🚗</h2>
+        <p data-i18n="welcome_msg">Welcome to the travel simulator - create your dream route!</p>
     </div>
     <div class="setup-content">
         <div class="setup-left">
-            <h3>Dodawanie przystanków na trasie</h3>
-            <p>Wprowadź szerokość i długość geograficzną oraz nazwę miejsca, następnie kliknij "DODAJ MIEJSCE"</p>
+            <h3 data-i18n="add_stop_title">Add stops to the route</h3>
+            <p data-i18n="add_stop_desc">Enter the latitude, longitude, and location name, then click "ADD LOCATION"</p>
             <div id="destination-inputs">
-                <input type="text" id="latitude" placeholder="Szerokość geograficzna">
-                <input type="text" id="longitude" placeholder="Długość geograficzna">
-                <input type="text" id="location-name" placeholder="Nazwa miejsca">
+                <input type="text" id="latitude" data-i18n="placeholder_lat" placeholder="Latitude">
+                <input type="text" id="longitude" data-i18n="placeholder_lon" placeholder="Longitude">
+                <input type="text" id="location-name" data-i18n="placeholder_name" placeholder="Location name">
                 <select id="transport-type">
                     <option value="auto">🚗</option>
                     <option value="moto">🏍️</option>
                     <option value="ferry">⛴️</option>
                     <option value="train">🚂</option>
                 </select>
-                <button class="btn" id="btn-add-destination">+ DODAJ MIEJSCE</button>
+                <button class="btn" id="btn-add-destination" data-i18n="btn_add">+ ADD LOCATION</button>
             </div>
         </div>
         <div class="setup-right">
-            <h3>Twoja trasa</h3>
+            <h3 data-i18n="your_route_title">Your route</h3>
             <div id="custom-stop-list">
-                <p style="color: var(--dim); font-size: 0.8rem; text-align: center;margin-top: 20px;">Trasa póki co jest pusta... 😒</p>
+                <p style="color: var(--dim); font-size: 0.8rem; text-align: center;margin-top: 20px;" data-i18n="empty_route">The route is empty for now... 😒</p>
             </div>
         </div>
     </div>
     
     <div class="setup-footer">
-        <p>Po dodaniu wszystkich miejsc docelowych, kliknij "DALEJ" aby kontynuować!</p>
-        <button class="btn" id="btn-next" disabled>DALEJ</button>
+        <p data-i18n="setup_footer_desc">After adding all destinations, click "NEXT" to continue!</p>
+        <button class="btn" id="btn-next" data-i18n="btn_next" disabled>NEXT</button>
+    </div>
+     <div class="lang-switcher">
+        <button id="btn-pl">PL</button>
+        <button id="btn-en">EN</button>
     </div>
 </div>
 
 <div id="advanced-screen" style="display:none">
     <div id="setup-header">
-        <h2>🪙 Koszty i spalanie ⛽</h2>
-        <p>Ustaw parametry dla wybranych pojazdów i ceny paliwa w państwach na trasie.</p>
+        <h2 data-i18n="adv_title">🪙 Costs and Fuel Consumption ⛽</h2>
+        <p data-i18n="adv_desc">Set parameters for selected vehicles and fuel prices in countries along the route.</p>
     </div>
     <div class="setup-content" style="max-width: 600px; flex-direction: column;">
         <div class="setup-left">
-            <h3>Spalanie (l/100km)</h3>
-            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;">Dla promu i pociągu możesz wpisać 0.</p>
+            <h3 data-i18n="adv_consumption_title">Fuel consumption (l/100km)</h3>
+            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;" data-i18n="adv_consumption_desc">For ferry and train you can enter 0.</p>
             <div id="transport-consumption-list"></div>
         </div>
         <div class="setup-right">
-            <h3>Ceny paliwa w państwach na trasie:</h3>
+            <h3 data-i18n="adv_fuel_title">Fuel prices in countries on the route:</h3>
             <div id="countries-fuel-list"></div>
         </div>
     </div>
 
     <div class="setup-footer">
-        <p>Wszystko gotowe? Kliknij "START PODRÓŻY"!</p>
-        <button class="btn btn-start" id="btn-back-setup">POWRÓT</button>
-        <button id="btn-start-sim" class="btn btn-start" disabled>START PODRÓŻY</button>
+        <p data-i18n="adv_footer_desc">Everything ready? Click "START JOURNEY"!</p>
+        <button class="btn btn-start" id="btn-back-setup" data-i18n="btn_back">BACK</button>
+        <button id="btn-start-sim" class="btn btn-start" data-i18n="btn_start_sim" disabled>START JOURNEY</button>
     </div>
 </div>
 
@@ -77,22 +81,22 @@
         <div id="map-container">
             <div id="loading" style="display: none;">
                 <div class="spinner"></div>
-                <div id="loading-msg">Pobieranie tras...</div>
+                <div id="loading-msg" data-i18n="loading_msg">Fetching routes...</div>
                 <div id="loading-bar"><div id="loading-fill"></div></div>
             </div>
             
             <div id="map"></div>
             <div id="stats-overlay">
-                <div class="stat-box"><span>TRASA CAŁKOWITA</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span>DROGA (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span>PROM</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span>POCIĄG</span><div class="val" id="stat-train-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box highlight"><span>PALIWO</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
-                <div class="stat-box highlight"><span>KOSZT PALIWA</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
+                <div class="stat-box"><span data-i18n="stat_total">TOTAL ROUTE</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_road">ROAD (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_ferry">FERRY</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_train">TRAIN</span><div class="val" id="stat-train-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box highlight"><span data-i18n="stat_fuel">FUEL</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
+                <div class="stat-box highlight"><span data-i18n="stat_cost">FUEL COST</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
             </div>
         </div>
         <div id="header">
-            <h2>🏍️ Expedition 🚗</h2>
+            <h2 data-i18n="app_title">🏍️ Expedition 🚗</h2>
             <h1 id="route-title"></h1>
         </div>
         <div id="controls-bottom">
@@ -102,8 +106,8 @@
                     <div class="info-left">
                         <span id="vbadge" class="vbadge">--</span>
                         <div class="info-text">
-                            <div id="info-stage">GOTOWY DO STARTU</div>
-                            <div id="info-sub">Skonfiguruj trasę i naciśnij start</div>
+                            <div id="info-stage" data-i18n="info_stage_ready">READY TO START</div>
+                            <div id="info-sub" data-i18n="info_sub_ready">Configure your route and press start</div>
                         </div>
                     </div>
                     <div class="speed-controls">
@@ -118,11 +122,12 @@
 
     <div id="right-panel">
         <div id="right-header">
-            <h2>TRASA</h2>
+            <h2 data-i18n="right_panel_title">ROUTE</h2>
             <div style="display:flex; gap:10px;">
-                <button class="btn" id="playBtn">▶ START</button>
+                <button class="btn" id="playBtn" data-i18n="btn_play">▶ START</button>
                 <button class="btn" id="resetBtn" style="padding: 10px;" title="Reset">🔄</button>
-            </div> </div>  
+            </div>
+        </div>  
         <div id="stop-list"></div>
     </div>
 </div>

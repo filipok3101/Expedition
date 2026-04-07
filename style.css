@@ -151,7 +151,6 @@
 #setup-header {text-align: center;margin-bottom: 30px;}
 #setup-header h2 {font-family: 'Bebas Neue', sans-serif;font-size: 4rem;letter-spacing: 6px;color: var(--accent);text-shadow: 0 0 18px var(--accent-glow);}
 #setup-header p {font-size: 1.1rem;color: var(--text);margin-top: 10px;}
-
 .setup-content {display: flex;gap: 40px;max-width: 2000px;width: 100%;margin: 0 auto;flex: 1;}
 
 .setup-left, .setup-right {flex: 1;background: var(--panel);border: 1px solid var(--border);padding: 25px;display: flex;flex-direction: column;}
@@ -170,8 +169,9 @@
 .setup-footer .btn {font-size: 1.5rem;padding: 15px 40px;width: auto;border-width: 2px;background: rgba(240, 165, 0, 0.1);}
 .setup-footer .btn:hover {background: var(--accent);color: var(--bg);box-shadow: 0 0 20px var(--accent-glow);}
 
-.translate .btn{width: auto; padding: 4px; font-size: 0.5rem;margin-top: 20px;}
-
+.lang-switcher #btn-pl{background: transparent;border: 1px solid var(--border);color: var(--text);font-family: 'Share Tech Mono', monospace;font-size: .65rem;letter-spacing: 2px;padding: 7px 10px;cursor: pointer;transition: all .2s;text-transform: uppercase;width: 2%;}
+.lang-switcher #btn-en{background: transparent;border: 1px solid var(--border);color: var(--text);font-family: 'Share Tech Mono', monospace;font-size: .65rem;letter-spacing: 2px;padding: 7px 10px;cursor: pointer;transition: all .2s;text-transform: uppercase;width: 2%;}
+.lang-switcher #btn-pl:hover, .lang-switcher #btn-en:hover {border-color: var(--accent);color: var(--accent);}
 /* Dodaj identyfikator drugiego ekranu do głównej reguły */
 #setup-screen, #advanced-screen {position: fixed;inset: 0;background: var(--bg);display: flex;flex-direction: column;z-index: 10000;padding: 40px;font-family: 'Share Tech Mono', monospace;}
 
