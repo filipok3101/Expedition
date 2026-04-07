@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏍️ Expedition 🚗</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="script.js" defer></script>
+</head>
+<body>  
+
+<div id="setup-screen">
+    <div id="setup-header">
+        <h2>🏍️ Expedition 🚗</h2>
+        <p>Witaj w symulatorze podróży - stwórz swoją wymarzoną trasę!</p>
+    </div>
+    <div class="setup-content">
+        <div class="setup-left">
+            <h3>Dodawanie przystanków na trasie</h3>
+            <p>Wprowadź szerokość i długość geograficzną oraz nazwę miejsca, nastęonie kliknij "DODAJ MIEJSCE"</p>
+            <div id="destination-inputs">
+                <input type="text" id="latitude" placeholder="Szerokość geograficzna">
+                <input type="text" id="longitude" placeholder="Długość geograficzna">
+                <input type="text" id="location-name" placeholder="Nazwa miejsca">
+                <select id="transport-type">
+                    <option value="auto">🚗</option>
+                    <option value="moto">🏍️</option>
+                    <option value="ferry">⛴️</option>
+                    <option value="train">🚂</option>
+                </select>
+            </div>
+    <button class="btn" onclick="addDestination()">+ DODAJ MIEJSCE</button>
+        </div>
+        <div class="setup-right">
+            <h3>Twoja trasa</h3>
+            <div id="custom-stop-list">
+                <p style="color: var(--dim); font-size: 0.8rem; text-align: center;margin-top: 20px;">Trasa póki co jest pusta... 😒</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="setup-footer">
+        <p>Po dodaniu wszystkich miejsc docelowych, kliknij "DALEJ" aby kontynuować!</p>
+    <button id="btn-next" class="btn btn-start" onclick="goToAdvanced()" disabled>DALEJ</button>
+</div>
+</div>
+<div id="advanced-screen" style="display:none">
+    <div id="setup-header">
+        <h2>🪙 Koszty i spalanie ⛽</h2>
+        <p>Ustaw parametry dla wybranych pojazdów i ceny paliwa w państwach na trasie.</p>
+    </div>
+    <div class="setup-content" style="max-width: 600px; flex-direction: column;">
+        <div class="setup-left">
+            <h3>Spalanie (l/100km)</h3>
+            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;">Dla promu i pociągu możesz wpisać 0.</p>
+            <div id="transport-consumption-list">
+                </div>
+        </div>
+    <div class="setup-right">
+            <h3>Ceny paliwa w państwach na trasie:</h3>
+            <div id="countries-fuel-list">
+                </div>
+        </div>
+    </div>
+
+    <div class="setup-footer">
+        <p>Wszystko gotowe? Kliknij "START PODRÓŻY"!</p>
+        <button class="btn btn-start" onclick="backToSetup()">POWRÓT</button>
+        <button id="btn-start-sim" class="btn btn-start" onclick="startFinalJourney()" disabled>START PODRÓŻY</button>
+    </div>
+</div>
+
+
+<div id="app" style="display:none">
+    <div id="main-panel">
+        <div id="map-container">
+            <div id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <div id="loading-msg">Pobieranie tras...</div>
+                <div id="loading-bar"><div id="loading-fill"></div></div>
+            </div>
+            
+            <div id="map"></div>
+            <div id="stats-overlay">
+                <div class="stat-box"><span>TRASA CAŁKOWITA</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span>DROGA (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span>PROM</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span>POCIĄG</span><div class="val" id="stat-train-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box highlight"><span>PALIWO</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
+                <div class="stat-box highlight"><span>KOSZT PALIWA</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
+            </div>
+        </div>
+        <div id="header">
+            <h2>🏍️ Expedition 🚗</h2>
+                <h1 id="route-title"></h1>
+        </div>
+        <div id="controls-bottom">
+            <div class="progress-container">
+                <div id="progress-bar"><div id="progress-fill"></div></div>
+                <div class="info-row">
+                    <div class="info-left">
+                        <span id="vbadge" class="vbadge">--</span>
+                        <div class="info-text">
+                            <div id="info-stage">GOTOWY DO STARTU</div>
+                            <div id="info-sub">Skonfiguruj trasę i naciśnij start</div>
+                            
+                        </div>
+                    </div>
+                    <div class="speed-controls">
+                        <button class="btn btn-icon" onclick="changeSpeed(-1)">⏪</button>
+                        <span id="speed-label" class="speed-label">1×</span>
+                        <button class="btn btn-icon" onclick="changeSpeed(1)">⏩</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="right-panel">
+        <div id="right-header">
+            <h2>TRASA</h2>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" id="playBtn" onclick="togglePlay()">▶ START</button>
+                <button class="btn" onclick="resetJourney()" style="padding: 10px;" title="Reset">🔄</button>
+            </div>
+        </div>
+        <div id="stop-list">
+            </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</body>
+</html>
