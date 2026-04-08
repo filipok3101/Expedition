@@ -41,7 +41,7 @@
         <div class="setup-right">
             <h3 data-i18n="your_route_title">Your route</h3>
             <div id="custom-stop-list">
-                <p style="color: var(--dim); font-size: 0.8rem; text-align: center;margin-top: 20px;" data-i18n="empty_route">The route is empty for now... 😒</p>
+                <p style="color: var(--dim); font-size: 1.25rem; text-align: center;margin-top: 20px;" data-i18n="empty_route">The route is empty for now... 😒</p>
             </div>
         </div>
     </div>
@@ -62,12 +62,12 @@
         <p data-i18n="adv_desc">Set parameters for selected vehicles and fuel prices in countries along the route.</p>
     </div>
     <div class="setup-content" style="max-width: 600px; flex-direction: column;">
-        <div class="setup-left">
+        <div class="setup-left" style="max-height: fit-content;">
             <h3 data-i18n="adv_consumption_title">Fuel consumption (l/100km)</h3>
             <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;" data-i18n="adv_consumption_desc">For ferry and train you can enter 0.</p>
             <div id="transport-consumption-list"></div>
         </div>
-        <div class="setup-right">
+        <div class="setup-right" style="max-height: 400px;">
             <h3 data-i18n="adv_fuel_title">Fuel prices in countries on the route:</h3>
             <div id="countries-fuel-list"></div>
         </div>

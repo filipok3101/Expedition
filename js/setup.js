@@ -180,7 +180,7 @@ export function updateStopsList() {
     list.innerHTML = '';
 
     if (S.customStops.length === 0) {
-        list.innerHTML = `<p style="color: var(--dim); font-size: 0.8rem; text-align: center; margin-top: 20px;">${t('empty_route')}</p>`;
+        list.innerHTML = `<p style="color: var(--dim); font-size: 1.25rem; text-align: center; margin-top: 20px;">${t('empty_route')}</p>`;
         document.getElementById('btn-next').disabled = true;
         return;
     }
