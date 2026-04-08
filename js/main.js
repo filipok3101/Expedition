@@ -3,13 +3,14 @@
 // Inicjalizuje mapę, kontrolki i eksponuje funkcje globalnie
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
-import { translations} from './translations.js';
+import { translations, uiLang } from './translations.js';
 import { preloadRoutes } from './routing.js';
 import { animStep, startSegment, finishJourney, placeFlag } from './animation.js';
 import {
     addDestination, updateStopsList,
     goToAdvanced, backToSetup,
-    dragStart, dragOver, dragEnter, dragLeave, drop, removeStop
+    dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
+    initSetupMap
 } from './setup.js';
 
 // ══════════════════════════════════════════════════════════
@@ -162,6 +163,7 @@ export let currentLang = 'en'; // Angielski jako domyślny
 
 export function changeLanguage(lang) {
     currentLang = lang;
+    uiLang.code = lang;
     
     // 1. Podmiana tekstów w HTML
     const elements = document.querySelectorAll('[data-i18n]');
@@ -214,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wymuś język domyślny po załadowaniu strony
     changeLanguage('en');
 
+    initSetupMap();
 });
 
 

@@ -1,13 +1,29 @@
+/** Aktualny język interfejsu — ustawiane z main.js (changeLanguage). */
+export const uiLang = { code: 'en' };
+
+export function t(key) {
+    const pack = translations[uiLang.code] || translations.en;
+    return pack[key] ?? translations.en[key] ?? key;
+}
+
 export const translations = {
     "pl": {
         "app_title": "🏍️ Expedition 🚗",
         "welcome_msg": "Witaj w symulatorze podróży - stwórz swoją wymarzoną trasę!",
         "add_stop_title": "Dodawanie przystanków na trasie",
-        "add_stop_desc": "Wprowadź szerokość i długość geograficzną oraz nazwę miejsca, następnie kliknij \"DODAJ MIEJSCE\"",
-        "placeholder_lat": "Szerokość geograficzna",
-        "placeholder_lon": "Długość geograficzna",
+        "add_stop_desc": "Wyszukaj miejscowość albo kliknij mapę, by ustawić punkt. Podaj nazwę przystanku i kliknij „DODAJ MIEJSCE”.",
+        "placeholder_search": "Szukaj miejscowości…",
+        "btn_search": "Szukaj",
+        "map_click_hint": "Albo kliknij mapę, by ustawić dokładny punkt.",
         "placeholder_name": "Nazwa miejsca",
         "btn_add": "+ DODAJ MIEJSCE",
+        "btn_add_loading": "⏳ Szukanie państwa…",
+        "err_no_point": "Wybierz punkt na mapie albo wybierz wynik z wyszukiwarki.",
+        "err_no_name": "Podaj nazwę miejsca.",
+        "err_no_results": "Brak wyników — spróbuj innej frazy.",
+        "err_search_failed": "Nie udało się wyszukać. Spróbuj ponownie.",
+        "country_unknown": "Nieznane",
+        "alert_min_two_stops": "Musisz dodać co najmniej punkt startowy i końcowy (2 miejsca)!",
         "your_route_title": "Twoja trasa",
         "empty_route": "Trasa póki co jest pusta... 😒",
         "setup_footer_desc": "Po dodaniu wszystkich miejsc docelowych, kliknij \"DALEJ\" aby kontynuować!",
@@ -36,11 +52,19 @@ export const translations = {
         "app_title": "🏍️ Expedition 🚗",
         "welcome_msg": "Welcome to the travel simulator - create your dream route!",
         "add_stop_title": "Add stops to the route",
-        "add_stop_desc": "Enter the latitude, longitude, and location name, then click \"ADD LOCATION\"",
-        "placeholder_lat": "Latitude",
-        "placeholder_lon": "Longitude",
+        "add_stop_desc": "Search for a place or click the map to set a point. Enter a stop name and click \"ADD LOCATION\".",
+        "placeholder_search": "Search for a place…",
+        "btn_search": "Search",
+        "map_click_hint": "Or click the map to set the exact point.",
         "placeholder_name": "Location name",
         "btn_add": "+ ADD LOCATION",
+        "btn_add_loading": "⏳ Looking up country…",
+        "err_no_point": "Pick a point on the map or choose a search result.",
+        "err_no_name": "Enter a location name.",
+        "err_no_results": "No results — try a different search.",
+        "err_search_failed": "Search failed. Please try again.",
+        "country_unknown": "Unknown",
+        "alert_min_two_stops": "Add at least a start and end point (2 places)!",
         "your_route_title": "Your route",
         "empty_route": "The route is empty for now... 😒",
         "setup_footer_desc": "After adding all destinations, click \"NEXT\" to continue!",

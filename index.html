@@ -20,10 +20,14 @@
     <div class="setup-content">
         <div class="setup-left">
             <h3 data-i18n="add_stop_title">Add stops to the route</h3>
-            <p data-i18n="add_stop_desc">Enter the latitude, longitude, and location name, then click "ADD LOCATION"</p>
+            <p data-i18n="add_stop_desc">Search for a place or click the map to choose a point, enter a name, then add the stop.</p>
             <div id="destination-inputs">
-                <input type="text" id="latitude" data-i18n="placeholder_lat" placeholder="Latitude">
-                <input type="text" id="longitude" data-i18n="placeholder_lon" placeholder="Longitude">
+                <div class="setup-search-row">
+                    <input type="text" id="place-search" data-i18n="placeholder_search" placeholder="Search for a place…" autocomplete="off">
+                    <button type="button" class="btn btn-setup-search" id="btn-place-search" data-i18n="btn_search">Search</button>
+                </div>
+                <div id="place-search-results" class="place-search-results" hidden></div>
+                <div id="setup-map" role="application" aria-label="Map to pick route stop"></div>
                 <input type="text" id="location-name" data-i18n="placeholder_name" placeholder="Location name">
                 <select id="transport-type">
                     <option value="auto">🚗</option>
