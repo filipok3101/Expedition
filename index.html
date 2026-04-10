@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script type="module" src="js/main.js" defer></script>
 </head>
-<body>  
+<body>
 
 <div id="setup-screen">
     <div id="setup-header">
@@ -30,10 +30,8 @@
                 <div id="setup-map" role="application" aria-label="Map to pick route stop"></div>
                 <input type="text" id="location-name" data-i18n="placeholder_name" placeholder="Location name">
                 <select id="transport-type">
-                    <option value="auto">🚗</option>
-                    <option value="moto">🏍️</option>
-                    <option value="ferry">⛴️</option>
-                    <option value="train">🚂</option>
+                    <option value="auto">🚗 Auto</option>
+                    <option value="moto">🏍️ Moto</option>
                 </select>
                 <button class="btn" id="btn-add-destination" data-i18n="btn_add">+ ADD LOCATION</button>
             </div>
@@ -45,12 +43,12 @@
             </div>
         </div>
     </div>
-    
+
     <div class="setup-footer">
         <p data-i18n="setup_footer_desc">After adding all destinations, click "NEXT" to continue!</p>
         <button class="btn" id="btn-next" data-i18n="btn_next" disabled>NEXT</button>
     </div>
-     <div class="lang-switcher">
+    <div class="lang-switcher">
         <button id="btn-pl">PL</button>
         <button id="btn-en">EN</button>
     </div>
@@ -64,7 +62,7 @@
     <div class="setup-content" style="max-width: 600px; flex-direction: column;">
         <div class="setup-left" style="max-height: fit-content;">
             <h3 data-i18n="adv_consumption_title">Fuel consumption (l/100km)</h3>
-            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;" data-i18n="adv_consumption_desc">For ferry and train you can enter 0.</p>
+            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;" data-i18n="adv_consumption_desc">Ferry segments are detected automatically and do not consume fuel.</p>
             <div id="transport-consumption-list"></div>
         </div>
         <div class="setup-right" style="max-height: 400px;">
@@ -88,16 +86,8 @@
                 <div id="loading-msg" data-i18n="loading_msg">Fetching routes...</div>
                 <div id="loading-bar"><div id="loading-fill"></div></div>
             </div>
-            
+
             <div id="map"></div>
-            <div id="stats-overlay">
-                <div class="stat-box"><span data-i18n="stat_total">TOTAL ROUTE</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_road">ROAD (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_ferry">FERRY</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_train">TRAIN</span><div class="val" id="stat-train-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box highlight"><span data-i18n="stat_fuel">FUEL</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
-                <div class="stat-box highlight"><span data-i18n="stat_cost">FUEL COST</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
-            </div>
         </div>
         <div id="header">
             <h2 data-i18n="app_title">🏍️ Expedition 🚗</h2>
@@ -131,8 +121,16 @@
                 <button class="btn" id="playBtn" data-i18n="btn_play">▶ START</button>
                 <button class="btn" id="resetBtn" style="padding: 10px;" title="Reset">🔄</button>
             </div>
-        </div>  
+        </div>
+                <div id="stats-overlay">
+                <div class="stat-box highlight"><span data-i18n="stat_total">TOTAL ROUTE</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_road">ROAD (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_ferry">FERRY</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
+                <div class="stat-box"><span data-i18n="stat_fuel">FUEL</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
+                <div class="stat-box"><span data-i18n="stat_cost">FUEL COST</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
+            </div>
         <div id="stop-list"></div>
+
     </div>
 </div>
 

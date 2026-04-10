@@ -4,32 +4,30 @@
 import * as S from './state.js';
 import { updateStats } from './main.js';
 
-// ── Ikony pojazdu i flagi ──
 export function vehIcon(type) {
-    const em  = type==='ferry' ? '⛴️' : type==='train' ? '🚂' : type==='auto' ? '🚗' : '🏍️';
-    const cls = type==='ferry' ? 'ferry-v' : type==='train' ? 'train-v' : type==='auto' ? 'auto-v' : '';
+    const em  = type === 'ferry' ? '⛴️' : type === 'auto' ? '🚗' : '🏍️';
+    const cls = type === 'ferry' ? 'ferry-v' : '';
     return L.divIcon({
         html: `<div class="vmarker ${cls}">${em}</div>`,
-        iconSize: [38, 38], iconAnchor: [19, 19], className: ''
+        iconSize: [38, 38], iconAnchor: [19, 19], className: '',
     });
 }
 
 function flagIcon(stop) {
     return L.divIcon({
         html: `<div class="flag-mk" title="${stop.name}">${stop.flag}</div>`,
-        iconSize: [22, 22], iconAnchor: [2, 20], className: ''
+        iconSize: [22, 22], iconAnchor: [2, 20], className: '',
     });
 }
 
 export function placeFlag(stop, idx) {
     const m = L.marker([stop.lat, stop.lon], { icon: flagIcon(stop), zIndexOffset: 200 }).addTo(S.map);
-    m.bindTooltip(`<b>${stop.name}</b><br><small>${stop.country}</small>`, { direction:'top', offset:[0,-6] });
+    m.bindTooltip(`<b>${stop.name}</b><br><small>${stop.country}</small>`, { direction: 'top', offset: [0, -6] });
     S.flagMarkers.push(m);
     const el = document.getElementById(`stop-${idx}`);
     if (el) { el.classList.remove('current'); el.classList.add('done'); }
 }
 
-// ── Interpolacja pozycji na segmencie ──
 export function interpPos(seg, frac) {
     const { coords, cum, distKm } = seg;
     if (frac <= 0) return coords[0];
@@ -43,7 +41,7 @@ export function interpPos(seg, frac) {
     const t = (target - cum[lo]) / (cum[hi] - cum[lo] + 1e-12);
     return [
         coords[lo][0] + (coords[hi][0] - coords[lo][0]) * t,
-        coords[lo][1] + (coords[hi][1] - coords[lo][1]) * t
+        coords[lo][1] + (coords[hi][1] - coords[lo][1]) * t,
     ];
 }
 
@@ -57,40 +55,35 @@ function partialCoords(seg, frac) {
     return sub;
 }
 
-// ── Prędkość animacji ──
 function getKmPerSec(type) {
-    if (type === 'ferry') return S.FERRY_KMS;
-    if (type === 'train') return S.TRAIN_KMS;
+    // Ferry i droga — ta sama skala prędkości kontrolowana przez użytkownika
     return S.ROAD_SPEEDS_KMS[S.speedIdx];
 }
 
-// ── Aktualizacja paska info na dole ──
 function updateInfoBar(seg) {
-    document.getElementById('info-stage').textContent = `${seg.from} → ${seg.to}`;
-    const labels = { moto:'🏍️ MOTOR', auto:'🚗 AUTO', ferry:'⛴️ PROM', train:'🚂 POCIĄG' };
+    document.getElementById('info-stage').textContent = `${seg.segFrom} → ${seg.segTo}`;
+    const labels = { moto: '🏍️ MOTO', auto: '🚗 AUTO', ferry: '⛴️ FERRY' };
     const badge = document.getElementById('vbadge');
     badge.className = `vbadge ${seg.type}`;
-    badge.textContent = labels[seg.type];
+    badge.textContent = labels[seg.type] ?? seg.type.toUpperCase();
     document.getElementById('info-sub').textContent =
-        `Odcinek: ~${Math.round(seg.distKm)} km · ${Math.round(S.segFrac * 100)}%`;
+        `Segment: ~${Math.round(seg.distKm)} km · ${Math.round(S.segFrac * 100)}%`;
 }
 
-// ── Start segmentu (rysowanie linii) ──
 export function startSegment() {
     if (S.curSeg >= S.routeSegments.length) return;
     const seg  = S.routeSegments[S.curSeg];
-    const opts = { color: S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: .9 };
+    const opts = { color: S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
     if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
     S.setCurrentPolyline(L.polyline([seg.coords[0]], opts).addTo(S.map));
 }
 
-// ── Zakończenie wyprawy ──
 export function finishJourney() {
     S.setAnimRunning(false);
-    document.getElementById('playBtn').textContent = '✓ META';
+    document.getElementById('playBtn').textContent = '✓ FINISH';
     document.getElementById('playBtn').classList.remove('active');
-    document.getElementById('info-stage').textContent = '🏁 Wyprawa ukończona!';
-    document.getElementById('info-sub').textContent = 'Dojechaliśmy do celu!';
+    document.getElementById('info-stage').textContent = '🏁 Journey complete!';
+    document.getElementById('info-sub').textContent = 'We reached the destination!';
     document.getElementById('progress-fill').style.width = '100%';
     S.finalizeAccum();
     updateStats();
@@ -100,7 +93,6 @@ export function finishJourney() {
     });
 }
 
-// ── Główna pętla animacji ──
 export function animStep(ts) {
     if (!S.animRunning) return;
     if (S.curSeg >= S.routeSegments.length) { finishJourney(); return; }
@@ -121,15 +113,23 @@ export function animStep(ts) {
 
         S.addDoneKm(seg.type, seg.distKm);
 
-        const segFuel = (seg.distKm / 100) * (S.consumptionByType[seg.type] || 0);
-        const segCost = segFuel * (S.fuelPricesByCountry[seg.country] || 0);
-        S.addDoneFuelCost(segFuel, segCost);
+        // Paliwo i koszt — ferry nie spala
+        if (!seg.noFuel) {
+            const fuel = (seg.distKm / 100) * (S.consumptionByType[seg.type] || 0);
+            const cost = fuel * (S.fuelPricesByCountry[seg.country] || 0);
+            S.addDoneFuelCost(fuel, cost);
+        }
 
-        const si = S.curSeg + 1;
-        if (si < S.STOPS.length) {
-            placeFlag(S.STOPS[si], si);
-            const nxt = document.getElementById(`stop-${si}`);
-            if (nxt) nxt.classList.add('current');
+        // Flaga tylko przy przejściu na następny STOP użytkownika
+        // (nie przy każdym sub-segmencie ferry)
+        const nextSeg = S.routeSegments[S.curSeg + 1];
+        if (!nextSeg || nextSeg.from !== seg.from) {
+            const toIdx = S.STOPS.findIndex(s => s.name === seg.to);
+            if (toIdx > 0) {
+                placeFlag(S.STOPS[toIdx], toIdx);
+                const nxt = document.getElementById(`stop-${toIdx}`);
+                if (nxt) nxt.classList.add('current');
+            }
         }
 
         S.setCurSeg(S.curSeg + 1);
@@ -157,14 +157,16 @@ export function animStep(ts) {
     const partial = seg.distKm * S.segFrac;
     S.updateAccum(seg.type, partial);
 
-    const partialFuel = (partial / 100) * (S.consumptionByType[seg.type] || 0);
-    const partialCost = partialFuel * (S.fuelPricesByCountry[seg.country] || 0);
-    S.updateAccumFuelCost(partialFuel, partialCost);
+    if (!seg.noFuel) {
+        const pFuel = (partial / 100) * (S.consumptionByType[seg.type] || 0);
+        const pCost = pFuel * (S.fuelPricesByCountry[seg.country] || 0);
+        S.updateAccumFuelCost(pFuel, pCost);
+    }
 
     updateStats();
 
-    const totalKm = S.totalMotoKm + S.totalFerryKm + S.totalTrainKm;
-    const doneKm  = S.accumMotoKm + S.accumFerryKm + S.accumTrainKm;
+    const totalKm = S.totalMotoKm + S.totalFerryKm;
+    const doneKm  = S.accumMotoKm + S.accumFerryKm;
     document.getElementById('progress-fill').style.width = (doneKm / totalKm * 100) + '%';
 
     updateInfoBar(seg);

@@ -1,6 +1,5 @@
 // ══════════════════════════════════════════════════════════
 // MAIN — punkt wejścia aplikacji
-// Inicjalizuje mapę, kontrolki i eksponuje funkcje globalnie
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
 import { translations, uiLang } from './translations.js';
@@ -10,105 +9,81 @@ import {
     addDestination, updateStopsList,
     goToAdvanced, backToSetup,
     dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
-    initSetupMap
+    initSetupMap,
 } from './setup.js';
 
-// ══════════════════════════════════════════════════════════
-// MAPA
-// ══════════════════════════════════════════════════════════
 export function initMap() {
     if (S.map) return;
-    S.setMap(L.map('map', {
-        zoomControl: false,
-        attributionControl: true,
-        center: [62, 18],
-        zoom: 4,
-    }));
+    S.setMap(L.map('map', { zoomControl: false, attributionControl: true, center: [52, 19], zoom: 4 }));
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(S.map);
 }
 
-// ══════════════════════════════════════════════════════════
-// STATYSTYKI
-// ══════════════════════════════════════════════════════════
 export function updateStats() {
-    const total = S.accumMotoKm + S.accumFerryKm + S.accumTrainKm;
+    const total = S.accumMotoKm + S.accumFerryKm;
     document.getElementById('stat-total-km').textContent = Math.round(total).toLocaleString('pl-PL');
     document.getElementById('stat-moto-km').textContent  = Math.round(S.accumMotoKm).toLocaleString('pl-PL');
     document.getElementById('stat-ferry-km').textContent = Math.round(S.accumFerryKm).toLocaleString('pl-PL');
-    document.getElementById('stat-train-km').textContent = Math.round(S.accumTrainKm).toLocaleString('pl-PL');
     document.getElementById('stat-fuel').textContent     = S.accumFuel.toFixed(1);
     document.getElementById('stat-cost').textContent     = Math.round(S.accumCost).toLocaleString('pl-PL');
 }
 
-// ══════════════════════════════════════════════════════════
-// START PODRÓŻY (z ekranu konfiguracji kosztów)
-// ══════════════════════════════════════════════════════════
 export function startFinalJourney() {
+    // Odczyt spalania tylko dla auto/moto
     S.uniqueTransports.forEach(type => {
-        S.consumptionByType[type] = parseFloat(document.getElementById(`cons-${type}`).value) || 0;
+        if (type === 'ferry') return;
+        S.consumptionByType[type] = parseFloat(document.getElementById(`cons-${type}`)?.value) || 0;
     });
     S.uniqueCountries.forEach(country => {
-        S.fuelPricesByCountry[country] = parseFloat(document.getElementById(`price-${country}`).value) || 0;
+        S.fuelPricesByCountry[country] = parseFloat(document.getElementById(`price-${country}`)?.value) || 0;
     });
 
     document.getElementById('advanced-screen').style.display = 'none';
     document.getElementById('app').style.display = 'grid';
 
     S.setSTOPS([...S.customStops]);
-
-    // Flagi startowe/końcowe
     S.STOPS.forEach((s, idx) => {
         s.flag = (idx === 0 || idx === S.STOPS.length - 1) ? '🏁' : '🚩';
     });
 
-    // Budowanie listy przystanków w prawym panelu
+    // Lista przystanków w prawym panelu — tylko auto/moto, ferry niewidoczne na liście
     const stopListEl = document.getElementById('stop-list');
     stopListEl.innerHTML = '';
     S.STOPS.forEach((s, i) => {
-        const cls  = s.type === 'ferry' ? 'ferry-stop' : s.type === 'train' ? 'train-stop' : '';
-        const icon = s.type === 'ferry' ? '⛴️' : s.type === 'train' ? '🚂' : s.type === 'auto' ? '🚗' : '🏍️';
+        const icon = s.type === 'auto' ? '🚗' : '🏍️';
         const d = document.createElement('div');
-        d.className = `stop-row ${cls}`;
+        d.className = 'stop-row';
         d.id = `stop-${i}`;
         d.innerHTML = `<div class="stop-dot"></div><span>${icon} ${s.name}</span>`;
         stopListEl.appendChild(d);
     });
 
-    // Tytuł trasy (skrócony jeśli za długi)
     const names = S.STOPS.map(s => s.name);
-    const title = names.length > 3
+    document.getElementById('route-title').textContent = names.length > 3
         ? `${names[0]} → ... → ${names[names.length - 1]}`
         : names.join(' → ');
-    document.getElementById('route-title').textContent = title;
 
     document.getElementById('loading').style.display = 'flex';
     initMap();
-
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            S.map.invalidateSize(true);
-            updateStats();
-            preloadRoutes();
-        });
-    });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        S.map.invalidateSize(true);
+        updateStats();
+        preloadRoutes();
+    }));
 }
 
-// ══════════════════════════════════════════════════════════
-// KONTROLKI ODTWARZANIA
-// ══════════════════════════════════════════════════════════
 export function togglePlay() {
     if (S.animRunning) {
         S.setAnimRunning(false);
         S.setLastTs(null);
         cancelAnimationFrame(S.animFrame);
-        document.getElementById('playBtn').textContent = '▶ WZNÓW';
+        document.getElementById('playBtn').textContent = '▶ RESUME';
         document.getElementById('playBtn').classList.remove('active');
     } else {
         S.setAnimRunning(true);
-        document.getElementById('playBtn').textContent = '⏸ PAUZA';
+        document.getElementById('playBtn').textContent = '⏸ PAUSE';
         document.getElementById('playBtn').classList.add('active');
         if (S.curSeg === 0 && S.segFrac === 0) {
             startSegment();
@@ -146,8 +121,8 @@ export function resetJourney() {
 
     document.getElementById('playBtn').textContent = '▶ START';
     document.getElementById('playBtn').classList.remove('active');
-    document.getElementById('info-stage').textContent = 'GOTOWY DO STARTU';
-    document.getElementById('info-sub').textContent   = 'Naciśnij START aby rozpocząć podróż';
+    document.getElementById('info-stage').textContent = 'READY TO START';
+    document.getElementById('info-sub').textContent   = 'Press START to begin the journey';
     document.getElementById('progress-fill').style.width = '0%';
     document.getElementById('stop-0').classList.add('current');
 
@@ -156,67 +131,42 @@ export function resetJourney() {
     S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 4, { animate: true });
 }
 
-// ══════════════════════════════════════════════════════════
-// SYSTEM TŁUMACZEŃ (i18n)
-// ══════════════════════════════════════════════════════════
-export let currentLang = 'en'; // Angielski jako domyślny
+export let currentLang = 'en';
 
 export function changeLanguage(lang) {
     currentLang = lang;
     uiLang.code = lang;
-    
-    // 1. Podmiana tekstów w HTML
-    const elements = document.querySelectorAll('[data-i18n]');
-    elements.forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        const translatedText = translations[currentLang][key];
-        
-        if (translatedText) {
-            if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
-                el.placeholder = translatedText;
-            } else {
-                el.textContent = translatedText;
-            }
-        }
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key  = el.getAttribute('data-i18n');
+        const text = translations[currentLang]?.[key];
+        if (!text) return;
+        if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) el.placeholder = text;
+        else el.textContent = text;
     });
 
-    // 2. Aktualizacja wyglądu przycisków PL / EN (żeby było widać, co jest wciśnięte)
     const btnEn = document.getElementById('btn-en');
     const btnPl = document.getElementById('btn-pl');
-    
     if (btnEn && btnPl) {
         btnEn.style.background = lang === 'en' ? 'var(--accent)' : 'var(--panel2)';
-        btnEn.style.color = lang === 'en' ? 'var(--bg)' : 'var(--text)';
-        
+        btnEn.style.color      = lang === 'en' ? 'var(--bg)'     : 'var(--text)';
         btnPl.style.background = lang === 'pl' ? 'var(--accent)' : 'var(--panel2)';
-        btnPl.style.color = lang === 'pl' ? 'var(--bg)' : 'var(--text)';
+        btnPl.style.color      = lang === 'pl' ? 'var(--bg)'     : 'var(--text)';
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- Ekran 1: Dodawanie przystanków ---
     document.getElementById('btn-add-destination').addEventListener('click', addDestination);
-    document.getElementById('btn-next').addEventListener('click', goToAdvanced); // POPRAWIONE ID
-    
-    // --- Ekran 2: Ustawienia zaawansowane ---
-    document.getElementById('btn-back-setup').addEventListener('click', backToSetup); // DODANE
-    document.getElementById('btn-start-sim').addEventListener('click', startFinalJourney); // DODANE
-    
-    // --- Ekran 3: Główny panel (Mapa) ---
+    document.getElementById('btn-next').addEventListener('click', goToAdvanced);
+    document.getElementById('btn-back-setup').addEventListener('click', backToSetup);
+    document.getElementById('btn-start-sim').addEventListener('click', startFinalJourney);
     document.getElementById('playBtn').addEventListener('click', togglePlay);
     document.getElementById('resetBtn').addEventListener('click', resetJourney);
-    
-    // --- Przyciski prędkości ---
     document.getElementById('btn-speed-down').addEventListener('click', () => changeSpeed(-1));
     document.getElementById('btn-speed-up').addEventListener('click', () => changeSpeed(1));
     document.getElementById('btn-pl').addEventListener('click', () => changeLanguage('pl'));
     document.getElementById('btn-en').addEventListener('click', () => changeLanguage('en'));
-    
-    // Wymuś język domyślny po załadowaniu strony
-    changeLanguage('en');
 
+    changeLanguage('en');
     initSetupMap();
 });
-
-
