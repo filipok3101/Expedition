@@ -9,6 +9,10 @@ export let uniqueTransports = new Set();
 export let fuelPricesByCountry = {};
 export let consumptionByType = {};
 
+// Nazwa trasy nadana przez użytkownika
+export let tourName = '';
+export function setTourName(v) { tourName = v; }
+
 // Tylko auto i moto — ferry wykrywane automatycznie z OSRM, train usunięty
 export const transportNames = {
     'auto': '🚗 Auto',
@@ -25,8 +29,7 @@ export const SPEED_LABELS    = ['¼×', '½×', '1×', '2×', '4×', '8×', '16�
 export let speedIdx = 2;
 
 // Prędkość animacji promu (km/s w skali animacji) — taka sama jak droga
-// (użytkownik steruje prędkością jednym suwakiem)
-export const FERRY_KMS = 20; // używa tej samej skali co ROAD_SPEEDS_KMS[speedIdx]
+export const FERRY_KMS = 20;
 
 // Stan animacji
 export let routeSegments = [];
@@ -73,7 +76,7 @@ export function resetKm() {
 
 export function addTotalKm(type, km) {
     if (type === 'ferry') totalFerryKm += km;
-    else totalMotoKm += km; // auto + moto
+    else totalMotoKm += km;
 }
 
 export function addDoneKm(type, km) {

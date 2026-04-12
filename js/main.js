@@ -11,6 +11,7 @@ import {
     dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
     initSetupMap,
 } from './setup.js';
+import { exportGPX, startMP4Recording } from './export.js';
 
 export function initMap() {
     if (S.map) return;
@@ -31,6 +32,10 @@ export function updateStats() {
 }
 
 export function startFinalJourney() {
+    // Odczyt nazwy trasy
+    const tourInput = document.getElementById('tour-name-input');
+    S.setTourName(tourInput?.value.trim() || '');
+
     // Odczyt spalania tylko dla auto/moto
     S.uniqueTransports.forEach(type => {
         if (type === 'ferry') return;
@@ -155,6 +160,41 @@ export function changeLanguage(lang) {
     }
 }
 
+// ── Export panel wiring ─────────────────────────────────────
+
+let selectedLayout = 'fullhd';
+
+function initExportPanel() {
+    // Toggle drawer
+    const triggerBtn = document.getElementById('exp-trigger-btn');
+    const drawer     = document.getElementById('exp-drawer');
+    triggerBtn?.addEventListener('click', () => {
+        const expanded = triggerBtn.getAttribute('aria-expanded') === 'true';
+        triggerBtn.setAttribute('aria-expanded', String(!expanded));
+        drawer.setAttribute('aria-hidden', String(expanded));
+        drawer.classList.toggle('open', !expanded);
+    });
+
+    // Layout selector
+    document.getElementById('exp-layout-grid')?.addEventListener('click', e => {
+        const btn = e.target.closest('.exp-layout-btn');
+        if (!btn) return;
+        document.querySelectorAll('.exp-layout-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedLayout = btn.dataset.layout;
+    });
+
+    // GPX export
+    document.getElementById('exp-gpx-btn')?.addEventListener('click', () => {
+        exportGPX();
+    });
+
+    // MP4 export
+    document.getElementById('exp-mp4-btn')?.addEventListener('click', () => {
+        startMP4Recording(selectedLayout);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add-destination').addEventListener('click', addDestination);
     document.getElementById('btn-next').addEventListener('click', goToAdvanced);
@@ -169,4 +209,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     changeLanguage('en');
     initSetupMap();
+    initExportPanel();
 });

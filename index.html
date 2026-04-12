@@ -38,6 +38,12 @@
         </div>
         <div class="setup-right">
             <h3 data-i18n="your_route_title">Your route</h3>
+            <div class="tour-name-row">
+                <label class="tour-name-label" for="tour-name-input" data-i18n="tour_name_label">NAME YOUR TOUR:</label>
+                <input type="text" id="tour-name-input" class="tour-name-input"
+                    data-i18n="tour_name_placeholder" placeholder="e.g. Alpine Summer 2025"
+                    maxlength="60" autocomplete="off">
+            </div>
             <div class ="list-wrapper">
             <div id="custom-stop-list">
                 <p style="color: var(--dim); font-size: 1.25rem; text-align: center;margin-top: 20px;" data-i18n="empty_route">The route is empty for now... 😒</p>
@@ -124,14 +130,70 @@
                 <button class="btn" id="resetBtn" style="padding: 10px;" title="Reset">🔄</button>
             </div>
         </div>
-                <div id="stats-overlay">
-                <div class="stat-box highlight"><span data-i18n="stat_total">TOTAL ROUTE</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_road">ROAD (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_ferry">FERRY</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
-                <div class="stat-box"><span data-i18n="stat_fuel">FUEL</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
-                <div class="stat-box"><span data-i18n="stat_cost">FUEL COST</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
-            </div>
+        <div id="stats-overlay">
+            <div class="stat-box highlight"><span data-i18n="stat_total">TOTAL ROUTE</span><div class="val" id="stat-total-km">0</div><div class="unit">km</div></div>
+            <div class="stat-box"><span data-i18n="stat_road">ROAD (AUTO/MOTO)</span><div class="val" id="stat-moto-km">0</div><div class="unit">km</div></div>
+            <div class="stat-box"><span data-i18n="stat_ferry">FERRY</span><div class="val" id="stat-ferry-km">0</div><div class="unit">km</div></div>
+            <div class="stat-box"><span data-i18n="stat_fuel">FUEL</span><div class="val" id="stat-fuel">0</div><div class="unit">L</div></div>
+            <div class="stat-box"><span data-i18n="stat_cost">FUEL COST</span><div class="val" id="stat-cost">0</div><div class="unit">PLN/EUR</div></div>
+        </div>
         <div id="stop-list"></div>
+
+        <div id="export-panel">
+            <button class="exp-trigger" id="exp-trigger-btn" aria-expanded="false">
+                <span class="exp-trigger-icon">⬇</span>
+                <span class="exp-trigger-label" data-i18n="exp_trigger_label">EXPORT YOUR ROUTE</span>
+                <span class="exp-trigger-caret" id="exp-caret">▸</span>
+            </button>
+
+            <div id="exp-drawer" aria-hidden="true">
+                <div class="exp-section">
+                    <div class="exp-section-label">
+                        <span class="exp-dot gpx-dot"></span><span data-i18n="exp_gpx_label">GPX FILE</span>
+                    </div>
+                    <p class="exp-hint" data-i18n="exp_gpx_hint">Waypoints + full track + metadata. Import to Garmin, Google Maps, OsmAnd, Komoot…</p>
+                    <button class="btn exp-btn" id="exp-gpx-btn" data-i18n="exp_gpx_btn">
+                        📍 DOWNLOAD GPX
+                    </button>
+                </div>
+
+                <div class="exp-divider"></div>
+
+                <div class="exp-section">
+                    <div class="exp-section-label">
+                        <span class="exp-dot mp4-dot"></span><span data-i18n="exp_video_label">VIDEO EXPORT</span>
+                    </div>
+                    <p class="exp-hint" data-i18n="exp_video_hint">Animated route replay on dark map — choose your layout:</p>
+
+                    <div class="exp-layout-grid" id="exp-layout-grid">
+                        <button class="exp-layout-btn active" data-layout="fullhd">
+                            <span class="exp-layout-icon">🖥️</span>
+                            <span class="exp-layout-name" data-i18n="exp_layout_fullhd">Full HD</span>
+                            <span class="exp-layout-dim">1920×1080</span>
+                        </button>
+                        <button class="exp-layout-btn" data-layout="instagram">
+                            <span class="exp-layout-icon">🟥</span>
+                            <span class="exp-layout-name" data-i18n="exp_layout_instagram">Instagram</span>
+                            <span class="exp-layout-dim">1080×1080</span>
+                        </button>
+                        <button class="exp-layout-btn" data-layout="tiktok">
+                            <span class="exp-layout-icon">📱</span>
+                            <span class="exp-layout-name" data-i18n="exp_layout_tiktok">TikTok</span>
+                            <span class="exp-layout-dim">1080×1920</span>
+                        </button>
+                    </div>
+
+                    <div id="exp-status" class="exp-status"></div>
+
+                    <button class="btn exp-btn mp4" id="exp-mp4-btn" data-i18n="exp_mp4_btn">
+                        🎬 RECORD VIDEO
+                    </button>
+                    <p class="exp-hint" style="margin-top:6px;font-size:.58rem;opacity:.7;" data-i18n="exp_mp4_note">
+                        Saves as .webm (Chrome/Edge). Route animates at accelerated speed — full recording takes ~30–90s depending on route length.
+                    </p>
+                </div>
+            </div>
+        </div>
 
     </div>
 </div>
