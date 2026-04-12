@@ -11,7 +11,7 @@ import {
     dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
     initSetupMap,
 } from './setup.js';
-import { exportGPX, startMP4Recording } from './export.js';
+import { exportGPX, startMP4Recording, recSettings } from './export.js';
 
 export function initMap() {
     if (S.map) return;
@@ -32,11 +32,9 @@ export function updateStats() {
 }
 
 export function startFinalJourney() {
-    // Odczyt nazwy trasy
     const tourInput = document.getElementById('tour-name-input');
     S.setTourName(tourInput?.value.trim() || '');
 
-    // Odczyt spalania tylko dla auto/moto
     S.uniqueTransports.forEach(type => {
         if (type === 'ferry') return;
         S.consumptionByType[type] = parseFloat(document.getElementById(`cons-${type}`)?.value) || 0;
@@ -53,7 +51,6 @@ export function startFinalJourney() {
         s.flag = (idx === 0 || idx === S.STOPS.length - 1) ? '🏁' : '🚩';
     });
 
-    // Lista przystanków w prawym panelu — tylko auto/moto, ferry niewidoczne na liście
     const stopListEl = document.getElementById('stop-list');
     stopListEl.innerHTML = '';
     S.STOPS.forEach((s, i) => {
@@ -65,10 +62,13 @@ export function startFinalJourney() {
         stopListEl.appendChild(d);
     });
 
-    const names = S.STOPS.map(s => s.name);
-    document.getElementById('route-title').textContent = names.length > 3
-        ? `${names[0]} → ... → ${names[names.length - 1]}`
-        : names.join(' → ');
+const names = S.STOPS.map(s => s.name);
+
+const stopsText = names.length > 3
+    ? `${names[0]} → ... → ${names[names.length - 1]}`
+    : names.join(' → ');
+
+document.getElementById('route-title').textContent = S.tourName || stopsText;
 
     document.getElementById('loading').style.display = 'flex';
     initMap();
@@ -162,8 +162,6 @@ export function changeLanguage(lang) {
 
 // ── Export panel wiring ─────────────────────────────────────
 
-let selectedLayout = 'fullhd';
-
 function initExportPanel() {
     // Toggle drawer
     const triggerBtn = document.getElementById('exp-trigger-btn');
@@ -175,24 +173,88 @@ function initExportPanel() {
         drawer.classList.toggle('open', !expanded);
     });
 
-    // Layout selector
+    // ── Tabs ──
+    document.querySelectorAll('.exp-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            document.querySelectorAll('.exp-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.exp-tab-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`exp-panel-${target}`)?.classList.add('active');
+        });
+    });
+
+    // ── Layout selector ──
     document.getElementById('exp-layout-grid')?.addEventListener('click', e => {
         const btn = e.target.closest('.exp-layout-btn');
         if (!btn) return;
         document.querySelectorAll('.exp-layout-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        selectedLayout = btn.dataset.layout;
+        recSettings.layout = btn.dataset.layout;
     });
 
-    // GPX export
-    document.getElementById('exp-gpx-btn')?.addEventListener('click', () => {
-        exportGPX();
+    // ── GPX export ──
+    document.getElementById('exp-gpx-btn')?.addEventListener('click', () => exportGPX());
+
+    // ── MP4 export ──
+    document.getElementById('exp-mp4-btn')?.addEventListener('click', () => startMP4Recording());
+
+    // ── Advanced: Zoom slider ──
+    const zoomSlider = document.getElementById('adv-zoom');
+    const zoomVal    = document.getElementById('adv-zoom-val');
+    zoomSlider?.addEventListener('input', () => {
+        const v = parseInt(zoomSlider.value);
+        recSettings.zoomKm = v;
+        zoomVal.textContent = `${v} km`;
     });
 
-    // MP4 export
-    document.getElementById('exp-mp4-btn')?.addEventListener('click', () => {
-        startMP4Recording(selectedLayout);
+    // ── Advanced: Map style ──
+    document.querySelectorAll('.exp-toggle-btn[data-map]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.exp-toggle-btn[data-map]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            recSettings.tileProvider = btn.dataset.map;
+        });
     });
+
+    // ── Advanced: Stats overlay toggle ──
+    document.getElementById('adv-stats')?.addEventListener('change', e => {
+        recSettings.showStats = e.target.checked;
+    });
+
+    // ── Advanced: Watermark toggle ──
+    document.getElementById('adv-watermark')?.addEventListener('change', e => {
+        if (!e.target.checked) {
+            // Show modal, don't apply change yet
+            e.target.checked = true; // revert visually until user confirms
+            openWatermarkModal();
+        } else {
+            recSettings.showWatermark = true;
+        }
+    });
+
+    // ── Watermark modal ──
+    document.getElementById('wm-modal-close')?.addEventListener('click', () => {
+        recSettings.showWatermark = false;
+        document.getElementById('adv-watermark').checked = false;
+        closeWatermarkModal();
+    });
+    document.getElementById('wm-modal')?.addEventListener('click', e => {
+        if (e.target === document.getElementById('wm-modal')) closeWatermarkModal();
+    });
+}
+
+function openWatermarkModal() {
+    const modal = document.getElementById('wm-modal');
+    if (!modal) return;
+    modal.setAttribute('aria-hidden','false');
+    modal.classList.add('open');
+}
+function closeWatermarkModal() {
+    const modal = document.getElementById('wm-modal');
+    if (!modal) return;
+    modal.setAttribute('aria-hidden','true');
+    modal.classList.remove('open');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

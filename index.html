@@ -139,6 +139,7 @@
         </div>
         <div id="stop-list"></div>
 
+        <!-- ═══ EXPORT PANEL ═══ -->
         <div id="export-panel">
             <button class="exp-trigger" id="exp-trigger-btn" aria-expanded="false">
                 <span class="exp-trigger-icon">⬇</span>
@@ -147,51 +148,128 @@
             </button>
 
             <div id="exp-drawer" aria-hidden="true">
-                <div class="exp-section">
-                    <div class="exp-section-label">
-                        <span class="exp-dot gpx-dot"></span><span data-i18n="exp_gpx_label">GPX FILE</span>
-                    </div>
-                    <p class="exp-hint" data-i18n="exp_gpx_hint">Waypoints + full track + metadata. Import to Garmin, Google Maps, OsmAnd, Komoot…</p>
-                    <button class="btn exp-btn" id="exp-gpx-btn" data-i18n="exp_gpx_btn">
-                        📍 DOWNLOAD GPX
-                    </button>
+
+                <!-- TAB BAR -->
+                <div class="exp-tabs">
+                    <button class="exp-tab active" data-tab="gpx" data-i18n="exp_tab_gpx">GPX</button>
+                    <button class="exp-tab" data-tab="video" data-i18n="exp_tab_video">VIDEO</button>
+                    <button class="exp-tab" data-tab="advanced" data-i18n="exp_tab_advanced">⚙ ADV</button>
                 </div>
 
-                <div class="exp-divider"></div>
-
-                <div class="exp-section">
-                    <div class="exp-section-label">
-                        <span class="exp-dot mp4-dot"></span><span data-i18n="exp_video_label">VIDEO EXPORT</span>
+                <!-- TAB: GPX -->
+                <div class="exp-tab-panel active" id="exp-panel-gpx">
+                    <div class="exp-section">
+                        <div class="exp-section-label">
+                            <span class="exp-dot gpx-dot"></span><span data-i18n="exp_gpx_label">GPX FILE</span>
+                        </div>
+                        <p class="exp-hint" data-i18n="exp_gpx_hint">Waypoints + full track + metadata. Import to Garmin, Google Maps, OsmAnd, Komoot…</p>
+                        <button class="btn exp-btn" id="exp-gpx-btn" data-i18n="exp_gpx_btn">📍 DOWNLOAD GPX</button>
                     </div>
-                    <p class="exp-hint" data-i18n="exp_video_hint">Animated route replay on dark map — choose your layout:</p>
-
-                    <div class="exp-layout-grid" id="exp-layout-grid">
-                        <button class="exp-layout-btn active" data-layout="fullhd">
-                            <span class="exp-layout-icon">🖥️</span>
-                            <span class="exp-layout-name" data-i18n="exp_layout_fullhd">Full HD</span>
-                            <span class="exp-layout-dim">1920×1080</span>
-                        </button>
-                        <button class="exp-layout-btn" data-layout="instagram">
-                            <span class="exp-layout-icon">🟥</span>
-                            <span class="exp-layout-name" data-i18n="exp_layout_instagram">Instagram</span>
-                            <span class="exp-layout-dim">1080×1080</span>
-                        </button>
-                        <button class="exp-layout-btn" data-layout="tiktok">
-                            <span class="exp-layout-icon">📱</span>
-                            <span class="exp-layout-name" data-i18n="exp_layout_tiktok">TikTok</span>
-                            <span class="exp-layout-dim">1080×1920</span>
-                        </button>
-                    </div>
-
-                    <div id="exp-status" class="exp-status"></div>
-
-                    <button class="btn exp-btn mp4" id="exp-mp4-btn" data-i18n="exp_mp4_btn">
-                        🎬 RECORD VIDEO
-                    </button>
-                    <p class="exp-hint" style="margin-top:6px;font-size:.58rem;opacity:.7;" data-i18n="exp_mp4_note">
-                        Saves as .webm (Chrome/Edge). Route animates at accelerated speed — full recording takes ~30–90s depending on route length.
-                    </p>
                 </div>
+
+                <!-- TAB: VIDEO -->
+                <div class="exp-tab-panel" id="exp-panel-video">
+                    <div class="exp-section">
+                        <div class="exp-section-label">
+                            <span class="exp-dot mp4-dot"></span><span data-i18n="exp_video_label">VIDEO EXPORT</span>
+                        </div>
+                        <p class="exp-hint" data-i18n="exp_video_hint">Animated route — choose your layout:</p>
+                        <div class="exp-layout-grid" id="exp-layout-grid">
+                            <button class="exp-layout-btn active" data-layout="fullhd">
+                                <span class="exp-layout-icon">🖥️</span>
+                                <span class="exp-layout-name" data-i18n="exp_layout_fullhd">Full HD</span>
+                                <span class="exp-layout-dim">1920×1080</span>
+                            </button>
+                            <button class="exp-layout-btn" data-layout="instagram">
+                                <span class="exp-layout-icon">🟥</span>
+                                <span class="exp-layout-name" data-i18n="exp_layout_instagram">Instagram</span>
+                                <span class="exp-layout-dim">1080×1080</span>
+                            </button>
+                            <button class="exp-layout-btn" data-layout="tiktok">
+                                <span class="exp-layout-icon">📱</span>
+                                <span class="exp-layout-name" data-i18n="exp_layout_tiktok">TikTok</span>
+                                <span class="exp-layout-dim">1080×1920</span>
+                            </button>
+                        </div>
+                        <div id="exp-status" class="exp-status"></div>
+                        <button class="btn exp-btn mp4" id="exp-mp4-btn" data-i18n="exp_mp4_btn">🎬 SAVE VIDEO</button>
+                        <p class="exp-hint" style="margin-top:6px;font-size:.58rem;opacity:.7;" data-i18n="exp_mp4_note">
+                            Saves as .webm (Chrome/Edge). Route animates at accelerated speed — ~30–90s.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TAB: ADVANCED -->
+                <div class="exp-tab-panel" id="exp-panel-advanced">
+                    <div class="exp-section">
+
+                        <!-- Zoom -->
+                        <div class="exp-adv-row">
+                            <span class="exp-adv-label" data-i18n="adv_zoom_label">CAMERA ZOOM</span>
+                            <span class="exp-adv-value" id="adv-zoom-val">40 km</span>
+                        </div>
+                        <input type="range" class="exp-slider" id="adv-zoom" min="5" max="200" step="5" value="40">
+                        <p class="exp-hint" data-i18n="adv_zoom_hint">Radius of visible area around the vehicle.</p>
+
+                        <div class="exp-divider" style="margin:10px 0;"></div>
+
+                        <!-- Map style -->
+                        <div class="exp-adv-row">
+                            <span class="exp-adv-label" data-i18n="adv_map_label">MAP STYLE</span>
+                        </div>
+                        <div class="exp-toggle-row">
+                            <button class="exp-toggle-btn active" data-map="dark" data-i18n="adv_map_dark">🌑 DARK</button>
+                            <button class="exp-toggle-btn" data-map="osm" data-i18n="adv_map_osm">🗺 OSM</button>
+                        </div>
+
+                        <div class="exp-divider" style="margin:10px 0;"></div>
+
+                        <!-- Stats overlay -->
+                        <div class="exp-adv-row">
+                            <span class="exp-adv-label" data-i18n="adv_stats_label">STATS OVERLAY</span>
+                            <label class="exp-switch">
+                                <input type="checkbox" id="adv-stats" checked>
+                                <span class="exp-switch-slider"></span>
+                            </label>
+                        </div>
+                        <p class="exp-hint" data-i18n="adv_stats_hint">Show distance, fuel and progress bar on video.</p>
+
+                        <div class="exp-divider" style="margin:10px 0;"></div>
+
+                        <!-- Watermark -->
+                        <div class="exp-adv-row">
+                            <span class="exp-adv-label" data-i18n="adv_wm_label">WATERMARK</span>
+                            <label class="exp-switch">
+                                <input type="checkbox" id="adv-watermark" checked>
+                                <span class="exp-switch-slider"></span>
+                            </label>
+                        </div>
+                        <p class="exp-hint" data-i18n="adv_wm_hint">Small "made by Expedition" tag in the corner.</p>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- ═══ END EXPORT PANEL ═══ -->
+
+        <!-- ═══ WATERMARK OPT-OUT MODAL ═══ -->
+        <div id="wm-modal" aria-hidden="true">
+            <div id="wm-modal-box">
+                <div class="wm-modal-icon">🏍️</div>
+                <h3 class="wm-modal-title" data-i18n="wm_modal_title">Expedition is open source!</h3>
+                <p class="wm-modal-body" data-i18n="wm_modal_body">
+                    You can remove the watermark — no problem! If you enjoy the app, consider supporting the project:
+                </p>
+                <div class="wm-modal-links">
+                    <a id="wm-link-bmc" href="#" target="_blank" rel="noopener" class="wm-link bmc">
+                        ☕ <span data-i18n="wm_modal_bmc">Buy me a coffee</span>
+                    </a>
+                    <a id="wm-link-reddit" href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="wm-link reddit">
+                        👾 <span data-i18n="wm_modal_reddit">Visit our GitHub  </span>
+                    </a>
+                </div>
+                <button class="btn wm-modal-close" id="wm-modal-close" data-i18n="wm_modal_close">GOT IT, REMOVE WATERMARK</button>
             </div>
         </div>
 
