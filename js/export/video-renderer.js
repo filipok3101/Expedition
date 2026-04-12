@@ -1,26 +1,40 @@
 import * as S from '../state.js';
 import { recSettings, TILE_PROVIDERS } from './config.js';
-import { lonToMercX, latToMercY, geoToPixel } from './utils.js';
+import { getNormMercX, getNormMercY, geoToPixelFast } from './utils.js';
 
 const tileCache = new Map();
+const fetchingTiles = new Set(); // Blokada podwójnego pobierania
 
-async function loadTile(x, y, z) {
+async function loadTileAsync(x, y, z, px, py) {
     const key = `${recSettings.tileProvider}/${z}/${x}/${y}`;
-    if (tileCache.has(key)) return tileCache.get(key);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
     return new Promise(resolve => {
-        img.onload  = () => { tileCache.set(key, img); resolve(img); };
-        img.onerror = () => resolve(null);
+        if (tileCache.has(key)) return resolve({img: tileCache.get(key), px, py});
+        if (fetchingTiles.has(key)) return resolve(null); 
+
+        fetchingTiles.add(key);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            tileCache.set(key, img);
+            fetchingTiles.delete(key);
+            resolve({img, px, py});
+        };
+        img.onerror = () => {
+            fetchingTiles.delete(key);
+            resolve(null);
+        };
         img.src = TILE_PROVIDERS[recSettings.tileProvider](x, y, z);
     });
 }
 
-export async function drawMapTiles(ctx, cLat, cLon, zoom, W, H) {
+export async function drawMapTiles(ctx, cLat, cLon, zoom, W, H, waitForNetwork = false) {
     const TILE = 256;
     const sc   = Math.pow(2, zoom);
-    const tX   = lonToMercX(cLon, sc) / TILE;
-    const tY   = latToMercY(cLat, sc) / TILE;
+    const cMercX = getNormMercX(cLon);
+    const cMercY = getNormMercY(cLat);
+    
+    const tX   = cMercX * sc / TILE;
+    const tY   = cMercY * sc / TILE;
     const offX = (tX - Math.floor(tX)) * TILE;
     const offY = (tY - Math.floor(tY)) * TILE;
     const sX   = Math.floor(tX) - Math.ceil(W/2/TILE) - 1;
@@ -28,38 +42,117 @@ export async function drawMapTiles(ctx, cLat, cLon, zoom, W, H) {
     const cols = Math.ceil(W/TILE) + 3;
     const rows = Math.ceil(H/TILE) + 3;
     const jobs = [];
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        const tx = sX+c, ty = sY+r;
-        const px = W/2 - offX + (tx - Math.floor(tX))*TILE;
-        const py = H/2 - offY + (ty - Math.floor(tY))*TILE;
-        const nx = ((tx%sc)+sc)%sc, ny = ((ty%sc)+sc)%sc;
-        jobs.push(loadTile(nx, ny, zoom).then(img => {
-            if (img) ctx.drawImage(img, Math.round(px), Math.round(py), TILE, TILE);
-        }));
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const tx = sX+c, ty = sY+r;
+            const px = W/2 - offX + (tx - Math.floor(tX))*TILE;
+            const py = H/2 - offY + (ty - Math.floor(tY))*TILE;
+            const nx = ((tx%sc)+sc)%sc, ny = ((ty%sc)+sc)%sc;
+            
+            const key = `${recSettings.tileProvider}/${zoom}/${nx}/${ny}`;
+            
+            if (tileCache.has(key)) {
+                ctx.drawImage(tileCache.get(key), Math.round(px), Math.round(py), TILE, TILE);
+            } else {
+                if (waitForNetwork) {
+                    jobs.push(loadTileAsync(nx, ny, zoom, px, py));
+                } else {
+                    // Ładuje w tle, nie psuje synchronizacji wideo i NIE RZUTUJE po załadowaniu na złą klatkę
+                    loadTileAsync(nx, ny, zoom, px, py); 
+                }
+            }
+        }
     }
-    await Promise.all(jobs);
+    
+    // Czekamy na kafelki tylko na starcie nagrywania, by uniknąć czarnego ekranu
+    if (waitForNetwork && jobs.length > 0) {
+        const results = await Promise.all(jobs);
+        results.forEach(res => {
+            if (res && res.img) {
+                ctx.drawImage(res.img, Math.round(res.px), Math.round(res.py), TILE, TILE);
+            }
+        });
+    }
 }
 
-export function drawSegmentLine(ctx, seg, coords, cLat, cLon, zoom, W, H) {
-    if (coords.length < 2) return;
-    const col = seg.type === 'ferry' ? '#38bdf8' : '#f0a500';
-    const w   = Math.max(2, W*0.004);
+export function drawCompletedSegments(ctx, segments, drawnUpTo, cMercX, cMercY, zoom, W, H) {
+    const sc = Math.pow(2, zoom);
+    const w  = Math.max(2, W * 0.004);
+    
     ctx.save();
-    ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineCap='round'; ctx.lineJoin='round';
-    if (seg.type === 'ferry') ctx.setLineDash([w*2.5, w*2]); else ctx.setLineDash([]);
+    ctx.lineWidth = w;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.strokeStyle = '#f0a500';
+    ctx.setLineDash([]);
     ctx.beginPath();
-    const f = geoToPixel(coords[0][0], coords[0][1], cLat, cLon, zoom, W, H);
-    ctx.moveTo(f.x, f.y);
-    for (let i=1; i<coords.length; i++) {
-        const p = geoToPixel(coords[i][0], coords[i][1], cLat, cLon, zoom, W, H);
-        ctx.lineTo(p.x, p.y);
+    let drewSolid = false;
+    for (let i = 0; i < drawnUpTo; i++) {
+        const seg = segments[i];
+        if (seg.type === 'ferry' || !seg.mercCoords || seg.mercCoords.length < 2) continue;
+        
+        ctx.moveTo((seg.mercCoords[0][0] - cMercX) * sc + W / 2, (seg.mercCoords[0][1] - cMercY) * sc + H / 2);
+        for (let j = 1; j < seg.mercCoords.length; j++) {
+            ctx.lineTo((seg.mercCoords[j][0] - cMercX) * sc + W / 2, (seg.mercCoords[j][1] - cMercY) * sc + H / 2);
+        }
+        drewSolid = true;
     }
+    if (drewSolid) ctx.stroke();
+
+    ctx.strokeStyle = '#38bdf8';
+    ctx.setLineDash([w * 2.5, w * 2]);
+    ctx.beginPath();
+    let drewFerry = false;
+    for (let i = 0; i < drawnUpTo; i++) {
+        const seg = segments[i];
+        if (seg.type !== 'ferry' || !seg.mercCoords || seg.mercCoords.length < 2) continue;
+        
+        ctx.moveTo((seg.mercCoords[0][0] - cMercX) * sc + W / 2, (seg.mercCoords[0][1] - cMercY) * sc + H / 2);
+        for (let j = 1; j < seg.mercCoords.length; j++) {
+            ctx.lineTo((seg.mercCoords[j][0] - cMercX) * sc + W / 2, (seg.mercCoords[j][1] - cMercY) * sc + H / 2);
+        }
+        drewFerry = true;
+    }
+    if (drewFerry) ctx.stroke();
+    ctx.restore();
+}
+
+export function drawPartialSegment(ctx, seg, frac, cMercX, cMercY, zoom, W, H) {
+    if (!seg.mercCoords || seg.mercCoords.length < 2) return;
+    const sc = Math.pow(2, zoom);
+    
+    const target = frac * seg.distKm;
+    let hi = 1;
+    while (hi < seg.cum.length - 1 && seg.cum[hi] < target) hi++;
+    
+    const lo = hi - 1;
+    const t = (target - seg.cum[lo]) / (seg.cum[hi] - seg.cum[lo] + 1e-12);
+    const endX = seg.mercCoords[lo][0] + (seg.mercCoords[hi][0] - seg.mercCoords[lo][0]) * t;
+    const endY = seg.mercCoords[lo][1] + (seg.mercCoords[hi][1] - seg.mercCoords[lo][1]) * t;
+
+    const w = Math.max(2, W * 0.004);
+    ctx.save();
+    ctx.strokeStyle = seg.type === 'ferry' ? '#38bdf8' : '#f0a500';
+    ctx.lineWidth = w; 
+    ctx.lineCap = 'round'; 
+    ctx.lineJoin = 'round';
+    if (seg.type === 'ferry') ctx.setLineDash([w * 2.5, w * 2]);
+    
+    ctx.beginPath();
+    ctx.moveTo((seg.mercCoords[0][0] - cMercX) * sc + W / 2, (seg.mercCoords[0][1] - cMercY) * sc + H / 2);
+    
+    for (let j = 1; j < hi; j++) {
+        ctx.lineTo((seg.mercCoords[j][0] - cMercX) * sc + W / 2, (seg.mercCoords[j][1] - cMercY) * sc + H / 2);
+    }
+    ctx.lineTo((endX - cMercX) * sc + W / 2, (endY - cMercY) * sc + H / 2);
     ctx.stroke();
     ctx.restore();
 }
 
-export function drawVehicle(ctx, lat, lon, type, cLat, cLon, zoom, W, H) {
-    const p   = geoToPixel(lat, lon, cLat, cLon, zoom, W, H);
+export function drawVehicle(ctx, lat, lon, type, cMercX, cMercY, zoom, W, H) {
+    const p   = geoToPixelFast(lat, lon, cMercX, cMercY, zoom, W, H);
     const em  = type === 'ferry' ? '⛴️' : type === 'auto' ? '🚗' : '🏍️';
     const sz  = Math.round(W*0.042);
     const col = type === 'ferry' ? 'rgba(56,189,248,0.6)' : 'rgba(240,165,0,0.6)';
@@ -73,15 +166,15 @@ export function drawVehicle(ctx, lat, lon, type, cLat, cLon, zoom, W, H) {
     ctx.fillText(em, p.x, p.y);
 }
 
-export function drawStopMarker(ctx, stop, cLat, cLon, zoom, W, H) {
-    const p  = geoToPixel(stop.lat, stop.lon, cLat, cLon, zoom, W, H);
+export function drawStopMarker(ctx, stop, cMercX, cMercY, zoom, W, H) {
+    const p  = geoToPixelFast(stop.lat, stop.lon, cMercX, cMercY, zoom, W, H);
     const fs = Math.round(W*0.024);
     ctx.font=`${fs}px serif`; ctx.textAlign='center'; ctx.textBaseline='bottom';
     ctx.fillText(stop.flag, p.x, p.y);
 }
 
-export function drawStopLabel(ctx, stop, alpha, cLat, cLon, zoom, W, H) {
-    const p   = geoToPixel(stop.lat, stop.lon, cLat, cLon, zoom, W, H);
+export function drawStopLabel(ctx, stop, alpha, cMercX, cMercY, zoom, W, H) {
+    const p   = geoToPixelFast(stop.lat, stop.lon, cMercX, cMercY, zoom, W, H);
     const fs  = Math.round(W*0.022);
     const pad = fs*0.6;
     ctx.save();

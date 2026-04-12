@@ -16,22 +16,14 @@ export function downloadBlob(data, filename, type) {
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
 }
 
-// Matematyka geograficzna
-export function latToMercY(lat, scale) {
+// ZOPTYMALIZOWANA Matematyka geograficzna (Prekalkulacja Mercatora)
+export function getNormMercX(lon) {
+    return (lon + 180) / 360 * 256;
+}
+
+export function getNormMercY(lat) {
     const r = lat * Math.PI / 180;
-    return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * scale * 256;
-}
-
-export function lonToMercX(lon, scale) {
-    return (lon+180)/360 * scale * 256;
-}
-
-export function geoToPixel(lat, lon, cLat, cLon, zoom, W, H) {
-    const sc = Math.pow(2, zoom);
-    return {
-        x: lonToMercX(lon, sc) - lonToMercX(cLon, sc) + W/2,
-        y: latToMercY(lat, sc) - latToMercY(cLat, sc) + H/2,
-    };
+    return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256;
 }
 
 export function kmToZoom(radiusKm, canvasSizePx) {
@@ -39,7 +31,18 @@ export function kmToZoom(radiusKm, canvasSizePx) {
     return Math.max(4, Math.min(15, Math.floor(z)));
 }
 
-// Interpolacja
+// Szybka zamiana używająca znormalizowanych koordynatów (bez liczenia log/tan w każdej klatce)
+export function geoToPixelFast(lat, lon, cMercX, cMercY, zoom, W, H) {
+    const sc = Math.pow(2, zoom);
+    const mx = getNormMercX(lon);
+    const my = getNormMercY(lat);
+    return {
+        x: (mx - cMercX) * sc + W / 2,
+        y: (my - cMercY) * sc + H / 2
+    };
+}
+
+// Interpolacja pozycji do ustalenia kamery
 export function interpSegPos(seg, frac) {
     const { coords, cum, distKm } = seg;
     if (frac <= 0) return coords[0];
@@ -49,12 +52,4 @@ export function interpSegPos(seg, frac) {
     while (lo < hi-1) { const mid=(lo+hi)>>1; if (cum[mid]<=target) lo=mid; else hi=mid; }
     const t = (target-cum[lo])/(cum[hi]-cum[lo]+1e-12);
     return [coords[lo][0]+(coords[hi][0]-coords[lo][0])*t, coords[lo][1]+(coords[hi][1]-coords[lo][1])*t];
-}
-
-export function getPartialCoords(seg, frac) {
-    const { coords, cum, distKm } = seg;
-    const target = frac * distKm;
-    let hi = 1;
-    while (hi < cum.length-1 && cum[hi] < target) hi++;
-    return [...coords.slice(0, hi), interpSegPos(seg, frac)];
 }
