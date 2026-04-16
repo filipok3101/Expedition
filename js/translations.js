@@ -75,7 +75,7 @@ export const translations = {
         // Watermark modal
         wm_modal_title:         'Expedition jest open source!',
         wm_modal_body:          'Możesz usunąć watermark — bez problemu! Jeśli podoba ci się aplikacja, rozważ wsparcie projektu:',
-        wm_modal_bmc:           'Dolej paliwa',
+        wm_modal_bmc:           'Dolej paliwa!',
         wm_modal_reddit:        'Odwiedź naszego GitHuba',
         wm_modal_close:         'ROZUMIEM, USUŃ WATERMARK',
     },

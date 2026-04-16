@@ -17,7 +17,7 @@ export const recSettings = {
     layout:        'fullhd',
 };
 
-export const REC_KM_PER_S   = 80;
+export const REC_KM_PER_S   = 40;
 export const LABEL_DURATION = 2800;
 export const LABEL_FADE     = 500;
 export const STOP_PAUSE_MS  = 250;
