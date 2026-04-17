@@ -2,7 +2,7 @@
 
 Expedition is a sleek, single-page application (SPA) designed for travelers, motorcyclists, and road-trip enthusiasts. It doesn't just plan your route — it brings your journey to life through dynamic animations, while keeping a sharp eye on your fuel budget across different borders.
 
-![Expedition demo](assets/demo.mp4)
+![Expedition demo](assets/demo.gif)
 
 ---
 
