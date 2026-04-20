@@ -4,7 +4,7 @@
 import * as S from './state.js';
 import { translations, uiLang } from './translations.js';
 import { preloadRoutes } from './routing.js';
-import { animStep, startSegment, finishJourney, placeFlag } from './animation.js';
+import { animStep, startSegment, finishJourney, placeFlag, vehIcon } from './animation.js';
 import {
     addDestination, updateStopsList,
     goToAdvanced, backToSetup,
@@ -59,6 +59,8 @@ export function startFinalJourney() {
         d.className = 'stop-row';
         d.id = `stop-${i}`;
         d.innerHTML = `<div class="stop-dot"></div><span>${icon} ${s.name}</span>`;
+        d.style.cursor = 'pointer';
+        d.addEventListener('click', () => jumpToStop(i));
         stopListEl.appendChild(d);
     });
 
@@ -102,6 +104,96 @@ export function togglePlay() {
 export function changeSpeed(dir) {
     S.setSpeedIdx(Math.max(0, Math.min(S.ROAD_SPEEDS_KMS.length - 1, S.speedIdx + dir)));
     document.getElementById('speed-label').textContent = S.SPEED_LABELS[S.speedIdx];
+}
+
+export function jumpToStop(stopIdx) {
+    if (!S.routeSegments.length) return;
+    if (stopIdx === 0) { resetJourney(); return; }
+
+    if (S.animRunning) {
+        S.setAnimRunning(false);
+        S.setLastTs(null);
+        cancelAnimationFrame(S.animFrame);
+    }
+
+    S.drawnPolylines.forEach(p => S.map.removeLayer(p));
+    S.drawnPolylines.length = 0;
+    S.flagMarkers.forEach(m => S.map.removeLayer(m));
+    S.flagMarkers.length = 0;
+    if (S.currentPolyline) { S.map.removeLayer(S.currentPolyline); S.setCurrentPolyline(null); }
+    if (S.vehicleMarker)   { S.map.removeLayer(S.vehicleMarker);   S.setVehicleMarker(null); }
+
+    S.resetKm();
+    S.STOPS.forEach((_, i) => {
+        const e = document.getElementById(`stop-${i}`);
+        if (e) e.classList.remove('done', 'current');
+    });
+
+    placeFlag(S.STOPS[0], 0);
+    document.getElementById('stop-0')?.classList.add('done');
+
+    const isLast = stopIdx >= S.STOPS.length - 1;
+    let targetSegIdx = isLast
+        ? S.routeSegments.length
+        : S.routeSegments.findIndex(seg => seg.from === S.STOPS[stopIdx].name);
+    if (targetSegIdx === -1) targetSegIdx = S.routeSegments.length;
+
+    for (let i = 0; i < targetSegIdx; i++) {
+        const seg = S.routeSegments[i];
+        const opts = { color: S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
+        if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
+        S.drawnPolylines.push(L.polyline(seg.coords, opts).addTo(S.map));
+
+        S.addDoneKm(seg.type, seg.distKm);
+        if (!seg.noFuel) {
+            const fuel = (seg.distKm / 100) * (S.consumptionByType[seg.type] || 0);
+            S.addDoneFuelCost(fuel, fuel * (S.fuelPricesByCountry[seg.country] || 0));
+        }
+
+        const nextSeg = S.routeSegments[i + 1];
+        if (!nextSeg || nextSeg.from !== seg.from) {
+            const toIdx = S.STOPS.findIndex(s => s.name === seg.to);
+            if (toIdx > 0 && toIdx <= stopIdx) placeFlag(S.STOPS[toIdx], toIdx);
+        }
+    }
+
+    S.updateAccum('auto', 0);
+
+    if (targetSegIdx >= S.routeSegments.length) {
+        S.setCurSeg(S.routeSegments.length);
+        S.setSegFrac(0);
+        finishJourney();
+        return;
+    }
+
+    S.setCurSeg(targetSegIdx);
+    S.setSegFrac(0);
+    S.setLastTs(null);
+
+    const stop = S.STOPS[stopIdx];
+    const nextSeg = S.routeSegments[targetSegIdx];
+    S.setVehicleMarker(
+        L.marker([stop.lat, stop.lon], { icon: vehIcon(nextSeg?.type || 'auto'), zIndexOffset: 600 }).addTo(S.map)
+    );
+
+    const curEl = document.getElementById(`stop-${stopIdx}`);
+    if (curEl) { curEl.classList.add('current'); curEl.classList.remove('done'); }
+
+    S.map.setView([stop.lat, stop.lon], 11, { animate: true });
+
+    const totalKm = S.totalMotoKm + S.totalFerryKm;
+    const doneKm  = S.doneMotoKm + S.doneFerryKm;
+    document.getElementById('progress-fill').style.width = (doneKm / totalKm * 100) + '%';
+    document.getElementById('playBtn').textContent = '▶ RESUME';
+    document.getElementById('playBtn').classList.remove('active');
+    document.getElementById('info-stage').textContent = `${nextSeg.segFrom} → ${nextSeg.segTo}`;
+    const labels = { moto: '🏍️ MOTO', auto: '🚗 AUTO', ferry: '⛴️ FERRY' };
+    const badge = document.getElementById('vbadge');
+    badge.className = `vbadge ${nextSeg.type}`;
+    badge.textContent = labels[nextSeg.type] ?? nextSeg.type.toUpperCase();
+    document.getElementById('info-sub').textContent = `Segment: ~${Math.round(nextSeg.distKm)} km · 0%`;
+
+    updateStats();
 }
 
 export function resetJourney() {

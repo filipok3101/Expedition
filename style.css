@@ -64,6 +64,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 .stop-row { display:flex; align-items:center; gap:8px; padding:5px 14px; font-size:1.3rem; letter-spacing:.5px; border-left:2px solid transparent; transition:all .3s; color:var(--dim); }
 .stop-row.done    { color:var(--accent); border-left-color:var(--accent); }
 .stop-row.current { color:#fff; border-left-color:#fff; background:rgba(255,255,255,.04); }
+.stop-row:hover   { background:rgba(255,255,255,.07); color:var(--text); }
 .stop-dot { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
 .stop-dist { padding:0 14px 8px 27px; margin-bottom:-9px; font-size:.88rem; color:var(--dim); letter-spacing:1px; }
 
