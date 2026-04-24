@@ -225,7 +225,7 @@ export function resetJourney() {
 
     placeFlag(S.STOPS[0], 0);
     updateStats();
-    S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 4, { animate: true });
+    S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 10, { animate: true });
 }
 
 export let currentLang = 'en';

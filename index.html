@@ -75,14 +75,25 @@
         <h2 data-i18n="adv_title">🪙 Costs and Fuel Consumption ⛽</h2>
         <p data-i18n="adv_desc">Set parameters for selected vehicles and fuel prices in countries along the route.</p>
     </div>
-    <div class="setup-content" style="max-width: 600px; flex-direction: column;">
-        <div class="setup-left" style="max-height: fit-content;">
-            <h3 data-i18n="adv_consumption_title">Fuel consumption (l/100km)</h3>
-            <p style="font-size: 0.8rem; color: var(--dim); margin-bottom: 10px;" data-i18n="adv_consumption_desc">Ferry segments are detected automatically and do not consume fuel.</p>
-            <div id="transport-consumption-list"></div>
+
+    <div class="adv-main-content">
+        <!-- Top row: Fuel consumption + Route Options -->
+        <div class="adv-top-row">
+            <div class="setup-left adv-panel-top">
+                <h3 data-i18n="adv_consumption_title">Fuel consumption (l/100km)</h3>
+                <p style="font-size:0.8rem;color:var(--dim);margin-bottom:10px;" data-i18n="adv_consumption_desc">Ferry segments are detected automatically and do not consume fuel.</p>
+                <div id="transport-consumption-list"></div>
+            </div>
+            <div class="setup-left adv-panel-top" id="route-options-panel">
+                <h3 data-i18n="adv_route_opts_title">Route Options</h3>
+                <div id="route-options-list"></div>
+            </div>
         </div>
-        <div class="setup-right" style="max-height: 400px;">
-            <h3 data-i18n="adv_fuel_title">Fuel prices in countries on the route:</h3>
+
+        <!-- Bottom: Countries fuel prices (full width, scrollable) -->
+        <div class="setup-right adv-countries-panel">
+            <h3 data-i18n="adv_fuel_title">Fuel prices by country (per litre)</h3>
+            <div id="countries-detecting-msg" class="adv-detecting-msg" style="display:none"></div>
             <div id="countries-fuel-list"></div>
         </div>
     </div>
@@ -259,9 +270,7 @@
 
             </div>
         </div>
-        <!-- ═══ END EXPORT PANEL ═══ -->
 
-        <!-- ═══ WATERMARK OPT-OUT MODAL ═══ -->
         <div id="wm-modal" aria-hidden="true">
             <div id="wm-modal-box">
                 <div class="wm-modal-icon">🏍️</div>

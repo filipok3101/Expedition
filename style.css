@@ -105,6 +105,22 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 #setup-header p { font-size:1.1rem; color:var(--text); margin-top:10px; }
 
 .setup-content { display:flex; gap:40px; flex-wrap:wrap; flex:1 0 auto; align-items:stretch; margin-bottom:40px; }
+
+/* ── ADVANCED SCREEN LAYOUT ── */
+.adv-main-content { display:flex; flex-direction:column; gap:20px; width:100%; max-width:820px; margin-bottom:30px; }
+.adv-top-row { display:flex; gap:20px; flex-wrap:wrap; align-items:stretch; }
+.adv-panel-top { flex:1 1 220px; min-width:0; }
+.adv-countries-panel { overflow-y:auto; max-height:260px; }
+.adv-countries-panel::-webkit-scrollbar { width:3px; }
+.adv-countries-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.adv-detecting-msg { font-size:.78rem; color:var(--dim); letter-spacing:1px; padding:6px 0 8px; display:flex; align-items:center; gap:8px; }
+.adv-detecting-msg::before { content:''; display:inline-block; width:8px; height:8px; border:2px solid var(--accent); border-top-color:transparent; border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── ROUTE OPTION ROW ── */
+.adv-option-row { display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--panel2); margin-bottom:8px; border:1px solid var(--border); }
+.adv-option-label { font-weight:bold; color:var(--accent); font-size:.85rem; letter-spacing:.5px; }
+.adv-option-sub { font-size:.7rem; color:var(--dim); margin-top:2px; }
 .setup-left { flex:1 1 400px; background:var(--panel); border:1px solid var(--border); padding:25px; display:flex; flex-direction:column; }
 .setup-right { flex:1; background:var(--panel); border:1px solid var(--border); padding:25px; display:flex; flex-direction:column; }
 .list-wrapper{flex:1;position:relative;min-height: 250px;}

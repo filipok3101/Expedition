@@ -1,6 +1,4 @@
-// ══════════════════════════════════════════════════════════
-// SETUP — ekran konfiguracji trasy (krok 1 i 2)
-// ══════════════════════════════════════════════════════════
+
 import * as S from './state.js';
 import { t, uiLang } from './translations.js';
 
@@ -208,17 +206,67 @@ export function removeStop(index) {
     updateStopsList();
 }
 
+function buildCountriesList() {
+    const div = document.getElementById('countries-fuel-list');
+    // Zachowaj wartości wpisane przez użytkownika przed przebudową listy
+    const saved = {};
+    div.querySelectorAll('input[type="number"]').forEach(inp => { saved[inp.id] = inp.value; });
+
+    div.innerHTML = '';
+    [...S.uniqueCountries].sort().forEach(country => {
+        const savedVal = saved[`price-${CSS.escape(country)}`] ?? saved[`price-${country}`] ?? '';
+        div.innerHTML += `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);margin-bottom:8px;border:1px solid var(--border);">
+                <span style="font-weight:bold;color:var(--accent);">${country}</span>
+                <input type="number" id="price-${country}" placeholder="e.g. 1.65" step="0.01"
+                    value="${savedVal}"
+                    style="width:110px;padding:5px;background:var(--bg);border:1px solid var(--border);color:white;">
+            </div>`;
+    });
+
+    div.querySelectorAll('input[type="number"]').forEach(inp => inp.addEventListener('input', validateAdvancedForm));
+    validateAdvancedForm();
+}
+
+async function detectRouteCountries() {
+    const msg = document.getElementById('countries-detecting-msg');
+    msg.style.display = 'flex';
+    msg.textContent   = 'Detecting countries along the route…';
+
+    const locLang = 'en';
+    for (let i = 0; i < S.customStops.length - 1; i++) {
+        const a = S.customStops[i];
+        const b = S.customStops[i + 1];
+        // 4 próbki pośrednie wzdłuż odcinka po linii prostej
+        for (const frac of [0.2, 0.4, 0.6, 0.8]) {
+            const lat = a.lat + (b.lat - a.lat) * frac;
+            const lon = a.lon + (b.lon - a.lon) * frac;
+            try {
+                const res  = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${locLang}`);
+                const data = await res.json();
+                const country = data.countryName?.trim();
+                if (country && !S.uniqueCountries.has(country)) {
+                    S.uniqueCountries.add(country);
+                    buildCountriesList();
+                }
+            } catch { /* cicha obsługa — pomijamy punkt */ }
+        }
+    }
+
+    msg.style.display = 'none';
+}
+
 export function goToAdvanced() {
     if (S.customStops.length < 2) { alert(t('alert_min_two_stops')); return; }
 
-    document.getElementById('setup-screen').style.display   = 'none';
+    document.getElementById('setup-screen').style.display    = 'none';
     document.getElementById('advanced-screen').style.display = 'flex';
 
-    // Spalanie — tylko auto i moto (ferry pomijane, train nie istnieje)
+    // ── Spalanie ──
     const transportDiv = document.getElementById('transport-consumption-list');
     transportDiv.innerHTML = '';
     S.uniqueTransports.forEach(type => {
-        if (type === 'ferry') return; // wykrywane auto, bez spalania
+        if (type === 'ferry') return;
         transportDiv.innerHTML += `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);margin-bottom:8px;border:1px solid var(--border);">
                 <span style="font-weight:bold;color:var(--accent);">${S.transportNames[type] ?? type}</span>
@@ -227,20 +275,33 @@ export function goToAdvanced() {
             </div>`;
     });
 
-    const countriesDiv = document.getElementById('countries-fuel-list');
-    countriesDiv.innerHTML = '';
-    S.uniqueCountries.forEach(country => {
-        countriesDiv.innerHTML += `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);margin-bottom:8px;border:1px solid var(--border);">
-                <span style="font-weight:bold;color:var(--accent);">${country}</span>
-                <input type="number" id="price-${country}" placeholder="Price / litre" step="0.01"
-                    style="width:120px;padding:5px;background:var(--bg);border:1px solid var(--border);color:white;">
-            </div>`;
+    // ── Opcje trasy ──
+    const optDiv = document.getElementById('route-options-list');
+    optDiv.innerHTML = `
+        <div class="adv-option-row">
+            <div>
+                <div class="adv-option-label">⛴️ AVOID FERRIES</div>
+                <div class="adv-option-sub">Route around sea crossings</div>
+            </div>
+            <label class="exp-switch">
+                <input type="checkbox" id="opt-avoid-ferries">
+                <span class="exp-switch-slider"></span>
+            </label>
+        </div>`;
+
+    document.getElementById('opt-avoid-ferries').checked = S.routeOptions.avoidFerries;
+    document.getElementById('opt-avoid-ferries').addEventListener('change', e => {
+        S.setRouteOptions({ avoidFerries: e.target.checked });
     });
 
+    // ── Kraje — najpierw znane przystanki, potem detekcja ──
+    buildCountriesList();
+    detectRouteCountries();
+
+    // Walidacja spalania
+    document.querySelectorAll('#transport-consumption-list input[type="number"]')
+        .forEach(inp => inp.addEventListener('input', validateAdvancedForm));
     validateAdvancedForm();
-    document.querySelectorAll('#advanced-screen input[type="number"]')
-        .forEach(input => input.addEventListener('input', validateAdvancedForm));
 }
 
 export function backToSetup() {

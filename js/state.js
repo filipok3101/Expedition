@@ -13,6 +13,10 @@ export let consumptionByType = {};
 export let tourName = '';
 export function setTourName(v) { tourName = v; }
 
+// Opcje trasy — wypełniane w advanced screen przed symulacją
+export let routeOptions = { avoidFerries: false };
+export function setRouteOptions(opts) { Object.assign(routeOptions, opts); }
+
 // Tylko auto i moto — ferry wykrywane automatycznie z OSRM, train usunięty
 export const transportNames = {
     'auto': '🚗 Auto',
