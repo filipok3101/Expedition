@@ -55,27 +55,28 @@ function partialCoords(seg, frac) {
     return sub;
 }
 
-function getKmPerSec(type) {
-    // Ferry i droga — ta sama skala prędkości kontrolowana przez użytkownika
-    return S.ROAD_SPEEDS_KMS[S.speedIdx];
-}
+// Ferry i droga używają tej samej skali prędkości kontrolowanej przez użytkownika
+export const TYPE_LABELS = { moto: '🏍️ MOTO', auto: '🚗 AUTO', ferry: '⛴️ FERRY' };
 
 function updateInfoBar(seg) {
     document.getElementById('info-stage').textContent = `${seg.segFrom} → ${seg.segTo}`;
-    const labels = { moto: '🏍️ MOTO', auto: '🚗 AUTO', ferry: '⛴️ FERRY' };
     const badge = document.getElementById('vbadge');
     badge.className = `vbadge ${seg.type}`;
-    badge.textContent = labels[seg.type] ?? seg.type.toUpperCase();
+    badge.textContent = TYPE_LABELS[seg.type] ?? seg.type.toUpperCase();
     document.getElementById('info-sub').textContent =
         `Segment: ~${Math.round(seg.distKm)} km · ${Math.round(S.segFrac * 100)}%`;
 }
 
-export function startSegment() {
-    if (S.curSeg >= S.routeSegments.length) return;
-    const seg  = S.routeSegments[S.curSeg];
+export function polylineOpts(seg) {
     const opts = { color: seg.color ?? S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
     if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
-    S.setCurrentPolyline(L.polyline([seg.coords[0]], opts).addTo(S.map));
+    return opts;
+}
+
+export function startSegment() {
+    if (S.curSeg >= S.routeSegments.length) return;
+    const seg = S.routeSegments[S.curSeg];
+    S.setCurrentPolyline(L.polyline([seg.coords[0]], polylineOpts(seg)).addTo(S.map));
 }
 
 export function finishJourney() {
@@ -101,7 +102,7 @@ export function animStep(ts) {
     const dt  = S.lastTs === null ? 0 : Math.min((ts - S.lastTs) / 1000, 0.1);
     S.setLastTs(ts);
 
-    if (dt > 0) S.setSegFrac(S.segFrac + getKmPerSec(seg.type) * dt / seg.distKm);
+    if (dt > 0) S.setSegFrac(S.segFrac + S.ROAD_SPEEDS_KMS[S.speedIdx] * dt / seg.distKm);
 
     if (S.segFrac >= 1) {
         S.setSegFrac(1);

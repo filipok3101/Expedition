@@ -322,6 +322,11 @@ export function goToAdvanced() {
     const mwCfgBtn   = document.getElementById('opt-motorways-cfg');
     const mwPanel    = document.getElementById('mw-per-segment');
 
+    function setMwPanelOpen(open) {
+        mwPanel.classList.toggle('open', open);
+        mwCfgBtn.classList.toggle('open', open);
+    }
+
     function buildMwPanel() {
         mwPanel.innerHTML = '';
         for (let i = 0; i < nSegs; i++) {
@@ -350,10 +355,7 @@ export function goToAdvanced() {
     function syncMwUI() {
         const on = S.routeOptions.avoidMotorways;
         mwCfgBtn.style.display = on ? 'inline-flex' : 'none';
-        if (!on) {
-            mwPanel.classList.remove('open');
-            mwCfgBtn.classList.remove('open');
-        }
+        if (!on) setMwPanelOpen(false);
     }
 
     mwCheckbox.checked = S.routeOptions.avoidMotorways;
@@ -363,24 +365,16 @@ export function goToAdvanced() {
         S.setRouteOptions({ avoidMotorways: val });
         buildMwPanel();
         syncMwUI();
-        if (val) {
-            mwPanel.classList.add('open');
-            mwCfgBtn.classList.add('open');
-        }
+        if (val) setMwPanelOpen(true);
     });
 
     mwCfgBtn.addEventListener('click', () => {
-        const opening = !mwPanel.classList.contains('open');
-        mwPanel.classList.toggle('open', opening);
-        mwCfgBtn.classList.toggle('open', opening);
+        setMwPanelOpen(!mwPanel.classList.contains('open'));
     });
 
     buildMwPanel();
     syncMwUI();
-    if (S.routeOptions.avoidMotorways) {
-        mwPanel.classList.add('open');
-        mwCfgBtn.classList.add('open');
-    }
+    if (S.routeOptions.avoidMotorways) setMwPanelOpen(true);
 
     // ── Kraje — najpierw znane przystanki, potem detekcja ──
     buildCountriesList();

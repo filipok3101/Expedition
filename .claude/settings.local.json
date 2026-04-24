@@ -16,7 +16,8 @@
       "Bash(node -e \"const j=require\\('/tmp/vf.json'\\); j.trip.legs[0].maneuvers.forEach\\(m=>console.log\\(JSON.stringify\\({type:m.type,mode:m.travel_mode,ttype:m.travel_type,instr:\\(m.instruction||''\\).slice\\(0,55\\)}\\)\\)\\)\")",
       "Bash(curl -s -X POST https://valhalla1.openstreetmap.de/route -H 'Content-Type: application/json' -d '{\"locations\":[{\"lat\":59.4370,\"lon\":24.7536},{\"lat\":60.1699,\"lon\":24.9384}],\"costing\":\"auto\",\"directions_options\":{\"units\":\"km\"}}')",
       "Bash(node -e \"const j=require\\('./vf.json'\\); j.trip.legs[0].maneuvers.forEach\\(m=>console.log\\(JSON.stringify\\({type:m.type,mode:m.travel_mode,ttype:m.travel_type,instr:\\(m.instruction||''\\).slice\\(0,55\\)}\\)\\)\\)\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(git *)"
     ]
   }
 }

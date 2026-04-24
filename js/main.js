@@ -4,7 +4,7 @@
 import * as S from './state.js';
 import { translations, uiLang } from './translations.js';
 import { preloadRoutes } from './routing.js';
-import { animStep, startSegment, finishJourney, placeFlag, vehIcon } from './animation.js';
+import { animStep, startSegment, finishJourney, placeFlag, vehIcon, polylineOpts, TYPE_LABELS } from './animation.js';
 import {
     addDestination, updateStopsList,
     goToAdvanced, backToSetup,
@@ -64,13 +64,11 @@ export function startFinalJourney() {
         stopListEl.appendChild(d);
     });
 
-const names = S.STOPS.map(s => s.name);
-
-const stopsText = names.length > 3
-    ? `${names[0]} → ... → ${names[names.length - 1]}`
-    : names.join(' → ');
-
-document.getElementById('route-title').textContent = S.tourName || stopsText;
+    const names = S.STOPS.map(s => s.name);
+    const stopsText = names.length > 3
+        ? `${names[0]} → ... → ${names[names.length - 1]}`
+        : names.join(' → ');
+    document.getElementById('route-title').textContent = S.tourName || stopsText;
 
     document.getElementById('loading').style.display = 'flex';
     initMap();
@@ -106,6 +104,15 @@ export function changeSpeed(dir) {
     document.getElementById('speed-label').textContent = S.SPEED_LABELS[S.speedIdx];
 }
 
+function clearMapLayers() {
+    S.drawnPolylines.forEach(p => S.map.removeLayer(p));
+    S.drawnPolylines.length = 0;
+    S.flagMarkers.forEach(m => S.map.removeLayer(m));
+    S.flagMarkers.length = 0;
+    if (S.currentPolyline) { S.map.removeLayer(S.currentPolyline); S.setCurrentPolyline(null); }
+    if (S.vehicleMarker)   { S.map.removeLayer(S.vehicleMarker);   S.setVehicleMarker(null); }
+}
+
 export function jumpToStop(stopIdx) {
     if (!S.routeSegments.length) return;
 
@@ -122,12 +129,7 @@ export function jumpToStop(stopIdx) {
         cancelAnimationFrame(S.animFrame);
     }
 
-    S.drawnPolylines.forEach(p => S.map.removeLayer(p));
-    S.drawnPolylines.length = 0;
-    S.flagMarkers.forEach(m => S.map.removeLayer(m));
-    S.flagMarkers.length = 0;
-    if (S.currentPolyline) { S.map.removeLayer(S.currentPolyline); S.setCurrentPolyline(null); }
-    if (S.vehicleMarker)   { S.map.removeLayer(S.vehicleMarker);   S.setVehicleMarker(null); }
+    clearMapLayers();
 
     S.resetKm();
     S.STOPS.forEach((_, i) => {
@@ -146,9 +148,7 @@ export function jumpToStop(stopIdx) {
 
     for (let i = 0; i < targetSegIdx; i++) {
         const seg = S.routeSegments[i];
-        const opts = { color: seg.color ?? S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
-        if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
-        S.drawnPolylines.push(L.polyline(seg.coords, opts).addTo(S.map));
+        S.drawnPolylines.push(L.polyline(seg.coords, polylineOpts(seg)).addTo(S.map));
 
         S.addDoneKm(seg.type, seg.distKm);
         if (!seg.noFuel) {
@@ -215,10 +215,9 @@ export function jumpToStop(stopIdx) {
     document.getElementById('playBtn').textContent = '▶ RESUME';
     document.getElementById('playBtn').classList.remove('active');
     document.getElementById('info-stage').textContent = `${nextSeg.segFrom} → ${nextSeg.segTo}`;
-    const labels = { moto: '🏍️ MOTO', auto: '🚗 AUTO', ferry: '⛴️ FERRY' };
     const badge = document.getElementById('vbadge');
     badge.className = `vbadge ${nextSeg.type}`;
-    badge.textContent = labels[nextSeg.type] ?? nextSeg.type.toUpperCase();
+    badge.textContent = TYPE_LABELS[nextSeg.type] ?? nextSeg.type.toUpperCase();
     document.getElementById('info-sub').textContent = `Segment: ~${Math.round(nextSeg.distKm)} km · 0%`;
 
     updateStats();
@@ -232,12 +231,7 @@ export function resetJourney() {
     S.setSegFrac(0);
     S.resetKm();
 
-    S.drawnPolylines.forEach(p => S.map.removeLayer(p));
-    S.drawnPolylines.length = 0;
-    S.flagMarkers.forEach(m => S.map.removeLayer(m));
-    S.flagMarkers.length = 0;
-    if (S.currentPolyline) { S.map.removeLayer(S.currentPolyline); S.setCurrentPolyline(null); }
-    if (S.vehicleMarker)   { S.map.removeLayer(S.vehicleMarker);   S.setVehicleMarker(null); }
+    clearMapLayers();
 
     S.STOPS.forEach((_, i) => {
         const e = document.getElementById(`stop-${i}`);
@@ -256,15 +250,12 @@ export function resetJourney() {
     S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 10, { animate: true });
 }
 
-export let currentLang = 'en';
-
 export function changeLanguage(lang) {
-    currentLang = lang;
     uiLang.code = lang;
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key  = el.getAttribute('data-i18n');
-        const text = translations[currentLang]?.[key];
+        const text = translations[lang]?.[key];
         if (!text) return;
         if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) el.placeholder = text;
         else el.textContent = text;

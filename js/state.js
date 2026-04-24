@@ -32,9 +32,6 @@ export const ROAD_SPEEDS_KMS = [5, 10, 20, 40, 80, 160, 320, 640];
 export const SPEED_LABELS    = ['¼×', '½×', '1×', '2×', '4×', '8×', '16×', '32×'];
 export let speedIdx = 2;
 
-// Prędkość animacji promu (km/s w skali animacji) — taka sama jak droga
-export const FERRY_KMS = 20;
-
 // Stan animacji
 export let routeSegments = [];
 export let totalMotoKm = 0, totalFerryKm = 0;
