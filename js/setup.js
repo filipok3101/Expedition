@@ -275,6 +275,16 @@ export function goToAdvanced() {
             </div>`;
     });
 
+    // ── Inicjalizacja per-segment motorway ──
+    const nSegs = S.customStops.length - 1;
+    const cur   = S.routeOptions.motorwayPerSegment;
+    if (cur.length !== nSegs) {
+        S.routeOptions.motorwayPerSegment = Array.from(
+            { length: nSegs },
+            (_, i) => i < cur.length ? cur[i] : S.routeOptions.avoidMotorways
+        );
+    }
+
     // ── Opcje trasy ──
     const optDiv = document.getElementById('route-options-list');
     optDiv.innerHTML = `
@@ -287,12 +297,90 @@ export function goToAdvanced() {
                 <input type="checkbox" id="opt-avoid-ferries">
                 <span class="exp-switch-slider"></span>
             </label>
-        </div>`;
+        </div>
+        <div class="adv-option-row">
+            <div class="adv-option-main">
+                <div>
+                    <div class="adv-option-label">🛣️ AVOID MOTORWAYS</div>
+                    <div class="adv-option-sub">No highways — route drawn in <span style="color:#e53935;font-weight:600">red</span></div>
+                </div>
+                <button id="opt-motorways-cfg" class="adv-settings-btn" title="Per-segment settings">⚙</button>
+            </div>
+            <label class="exp-switch">
+                <input type="checkbox" id="opt-avoid-motorways">
+                <span class="exp-switch-slider"></span>
+            </label>
+        </div>
+        <div id="mw-per-segment" class="mw-per-segment"></div>`;
 
     document.getElementById('opt-avoid-ferries').checked = S.routeOptions.avoidFerries;
     document.getElementById('opt-avoid-ferries').addEventListener('change', e => {
         S.setRouteOptions({ avoidFerries: e.target.checked });
     });
+
+    const mwCheckbox = document.getElementById('opt-avoid-motorways');
+    const mwCfgBtn   = document.getElementById('opt-motorways-cfg');
+    const mwPanel    = document.getElementById('mw-per-segment');
+
+    function buildMwPanel() {
+        mwPanel.innerHTML = '';
+        for (let i = 0; i < nSegs; i++) {
+            const a    = S.customStops[i];
+            const b    = S.customStops[i + 1];
+            const icon = b.type === 'moto' ? '🏍️' : '🚗';
+            mwPanel.innerHTML += `
+                <div class="mw-seg-row">
+                    <span class="mw-seg-label">${icon} ${a.name} → ${b.name}</span>
+                    <label class="exp-switch">
+                        <input type="checkbox" id="mw-seg-${i}" ${S.routeOptions.motorwayPerSegment[i] ? 'checked' : ''}>
+                        <span class="exp-switch-slider"></span>
+                    </label>
+                </div>`;
+        }
+        for (let i = 0; i < nSegs; i++) {
+            document.getElementById(`mw-seg-${i}`).addEventListener('change', e => {
+                S.routeOptions.motorwayPerSegment[i] = e.target.checked;
+                const anyOn = S.routeOptions.motorwayPerSegment.some(v => v);
+                S.setRouteOptions({ avoidMotorways: anyOn });
+                mwCheckbox.checked = anyOn;
+            });
+        }
+    }
+
+    function syncMwUI() {
+        const on = S.routeOptions.avoidMotorways;
+        mwCfgBtn.style.display = on ? 'inline-flex' : 'none';
+        if (!on) {
+            mwPanel.classList.remove('open');
+            mwCfgBtn.classList.remove('open');
+        }
+    }
+
+    mwCheckbox.checked = S.routeOptions.avoidMotorways;
+    mwCheckbox.addEventListener('change', e => {
+        const val = e.target.checked;
+        S.routeOptions.motorwayPerSegment.fill(val);
+        S.setRouteOptions({ avoidMotorways: val });
+        buildMwPanel();
+        syncMwUI();
+        if (val) {
+            mwPanel.classList.add('open');
+            mwCfgBtn.classList.add('open');
+        }
+    });
+
+    mwCfgBtn.addEventListener('click', () => {
+        const opening = !mwPanel.classList.contains('open');
+        mwPanel.classList.toggle('open', opening);
+        mwCfgBtn.classList.toggle('open', opening);
+    });
+
+    buildMwPanel();
+    syncMwUI();
+    if (S.routeOptions.avoidMotorways) {
+        mwPanel.classList.add('open');
+        mwCfgBtn.classList.add('open');
+    }
 
     // ── Kraje — najpierw znane przystanki, potem detekcja ──
     buildCountriesList();

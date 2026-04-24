@@ -108,7 +108,13 @@ export function changeSpeed(dir) {
 
 export function jumpToStop(stopIdx) {
     if (!S.routeSegments.length) return;
-    if (stopIdx === 0) { resetJourney(); return; }
+
+    // resetJourney musi być przed flyTo — kończy się setView które anuluje wcześniejszy flyTo
+    if (stopIdx === 0) {
+        resetJourney();
+        S.map.flyTo([S.STOPS[0].lat, S.STOPS[0].lon], 14, { animate: true, duration: 1.5 });
+        return;
+    }
 
     if (S.animRunning) {
         S.setAnimRunning(false);
@@ -140,7 +146,7 @@ export function jumpToStop(stopIdx) {
 
     for (let i = 0; i < targetSegIdx; i++) {
         const seg = S.routeSegments[i];
-        const opts = { color: S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
+        const opts = { color: seg.color ?? S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
         if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
         S.drawnPolylines.push(L.polyline(seg.coords, opts).addTo(S.map));
 
@@ -157,12 +163,36 @@ export function jumpToStop(stopIdx) {
         }
     }
 
+    // accum = done (partial = 0, stoimy dokładnie na przystanku)
     S.updateAccum('auto', 0);
 
+    // totalMotoKm/totalFerryKm zostały wyzerowane przez resetKm() — liczymy z segmentów
+    const totalKm = S.routeSegments.reduce((s, seg) => s + seg.distKm, 0);
+    const doneKm  = S.doneMotoKm + S.doneFerryKm;
+
     if (targetSegIdx >= S.routeSegments.length) {
+        // Ostatni przystanek — nie wywołujemy finishJourney() bo ta woła finalizeAccum()
+        // który używa totalMotoKm = 0 (po resetKm). Robimy to samo co finishJourney ręcznie.
         S.setCurSeg(S.routeSegments.length);
         S.setSegFrac(0);
-        finishJourney();
+        S.setLastTs(null);
+        S.setAnimRunning(false);
+        const lastStop = S.STOPS[S.STOPS.length - 1];
+        const lastSeg  = S.routeSegments[S.routeSegments.length - 1];
+        S.setVehicleMarker(
+            L.marker([lastStop.lat, lastStop.lon], { icon: vehIcon(lastSeg?.type || 'auto'), zIndexOffset: 600 }).addTo(S.map)
+        );
+        S.STOPS.forEach((_, i) => {
+            const e = document.getElementById(`stop-${i}`);
+            if (e) { e.classList.add('done'); e.classList.remove('current'); }
+        });
+        document.getElementById('playBtn').textContent = '✓ FINISH';
+        document.getElementById('playBtn').classList.remove('active');
+        document.getElementById('info-stage').textContent = '🏁 Journey complete!';
+        document.getElementById('info-sub').textContent = 'We reached the destination!';
+        document.getElementById('progress-fill').style.width = '100%';
+        updateStats();
+        S.map.flyTo([lastStop.lat, lastStop.lon], 14, { animate: true, duration: 1.5 });
         return;
     }
 
@@ -170,20 +200,18 @@ export function jumpToStop(stopIdx) {
     S.setSegFrac(0);
     S.setLastTs(null);
 
-    const stop = S.STOPS[stopIdx];
+    const stop    = S.STOPS[stopIdx];
     const nextSeg = S.routeSegments[targetSegIdx];
     S.setVehicleMarker(
-        L.marker([stop.lat, stop.lon], { icon: vehIcon(nextSeg?.type || 'auto'), zIndexOffset: 600 }).addTo(S.map)
+        L.marker([stop.lat, stop.lon], { icon: vehIcon(nextSeg.type), zIndexOffset: 600 }).addTo(S.map)
     );
 
     const curEl = document.getElementById(`stop-${stopIdx}`);
     if (curEl) { curEl.classList.add('current'); curEl.classList.remove('done'); }
 
-    S.map.setView([stop.lat, stop.lon], 11, { animate: true });
+    S.map.flyTo([stop.lat, stop.lon], 14, { animate: true, duration: 1.5 });
 
-    const totalKm = S.totalMotoKm + S.totalFerryKm;
-    const doneKm  = S.doneMotoKm + S.doneFerryKm;
-    document.getElementById('progress-fill').style.width = (doneKm / totalKm * 100) + '%';
+    document.getElementById('progress-fill').style.width = totalKm > 0 ? (doneKm / totalKm * 100) + '%' : '0%';
     document.getElementById('playBtn').textContent = '▶ RESUME';
     document.getElementById('playBtn').classList.remove('active');
     document.getElementById('info-stage').textContent = `${nextSeg.segFrom} → ${nextSeg.segTo}`;

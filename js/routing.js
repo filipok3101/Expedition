@@ -58,14 +58,17 @@ function decodePolyline6(encoded) {
     return coords;
 }
 
-async function fetchValhallaChunk(from, to, costing) {
+async function fetchValhallaChunk(from, to, costing, avoidMotorways) {
     const fromLoc = { lon: from[1], lat: from[0] };
     const toLoc   = { lon: to[1],   lat: to[0] };
     const body = {
         locations: [fromLoc, toLoc],
         costing,
         costing_options: {
-            [costing]: { use_ferry: S.routeOptions.avoidFerries ? 0.0 : 1.0 },
+            [costing]: {
+                use_ferry:    S.routeOptions.avoidFerries ? 0.0 : 1.0,
+                use_highways: avoidMotorways              ? 0.0 : 1.0,
+            },
         },
         directions_options: { units: 'km' },
     };
@@ -145,7 +148,10 @@ export async function preloadRoutes() {
         msg.textContent = `Route ${i + 1}/${S.STOPS.length - 1}: ${from.name} → ${to.name}`;
         fill.style.width = ((i / (S.STOPS.length - 2)) * 100) + '%';
 
-        const rawSubs = await fetchValhallaChunk([from.lat, from.lon], [to.lat, to.lon], costing);
+        const perSeg = S.routeOptions.motorwayPerSegment;
+        const segAvoidMw = perSeg.length > i ? perSeg[i] : S.routeOptions.avoidMotorways;
+
+        const rawSubs = await fetchValhallaChunk([from.lat, from.lon], [to.lat, to.lon], costing, segAvoidMw);
 
         if (!rawSubs) {
             document.getElementById('loading').style.display = 'none';
@@ -185,6 +191,7 @@ export async function preloadRoutes() {
                 segFrom, segTo,
                 country: from.country,
                 noFuel:  type === 'ferry',
+                color:   (segAvoidMw && type !== 'ferry') ? '#e53935' : null,
             });
 
             S.addTotalKm(type, distKm);

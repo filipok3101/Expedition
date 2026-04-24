@@ -118,9 +118,49 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 @keyframes spin { to { transform:rotate(360deg); } }
 
 /* ── ROUTE OPTION ROW ── */
-.adv-option-row { display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--panel2); margin-bottom:8px; border:1px solid var(--border); }
+.adv-option-row { display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--panel2); margin-bottom:0; border:1px solid var(--border); }
+.adv-option-row + .adv-option-row,
+.mw-per-segment + .adv-option-row { margin-top:8px; }
 .adv-option-label { font-weight:bold; color:var(--accent); font-size:.85rem; letter-spacing:.5px; }
 .adv-option-sub { font-size:.7rem; color:var(--dim); margin-top:2px; }
+.adv-option-main { display:flex; align-items:center; gap:8px; }
+.adv-settings-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: .85rem;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    line-height: 1.5;
+}
+.adv-settings-btn:hover,
+.adv-settings-btn.open { color: var(--accent); border-color: var(--accent); }
+.mw-per-segment {
+    max-height: 0;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    transition: max-height .25s ease, padding .25s ease;
+    padding: 0 10px;
+    margin-bottom: 8px;
+}
+.mw-per-segment.open { max-height: 500px; padding: 6px 10px; }
+.mw-seg-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: .76rem;
+    border-bottom: 1px solid var(--border);
+}
+.mw-seg-row:last-child { border-bottom: none; }
+.mw-seg-label { color: var(--dim); }
 .setup-left { flex:1 1 400px; background:var(--panel); border:1px solid var(--border); padding:25px; display:flex; flex-direction:column; }
 .setup-right { flex:1; background:var(--panel); border:1px solid var(--border); padding:25px; display:flex; flex-direction:column; }
 .list-wrapper{flex:1;position:relative;min-height: 250px;}

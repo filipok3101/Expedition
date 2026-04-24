@@ -73,7 +73,7 @@ function updateInfoBar(seg) {
 export function startSegment() {
     if (S.curSeg >= S.routeSegments.length) return;
     const seg  = S.routeSegments[S.curSeg];
-    const opts = { color: S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
+    const opts = { color: seg.color ?? S.lineColors[seg.type], weight: S.lineWeight[seg.type], opacity: 0.9 };
     if (S.lineDash[seg.type]) opts.dashArray = S.lineDash[seg.type];
     S.setCurrentPolyline(L.polyline([seg.coords[0]], opts).addTo(S.map));
 }

@@ -108,7 +108,8 @@ export function drawCompletedSegments(ctx, segments, drawnUpTo, cMercX, cMercY, 
     ctx.lineJoin   = 'round';
 
     // ── Drogi (road/auto/moto) ──
-    ctx.strokeStyle = '#f0a500';
+    const roadColor = segments.slice(0, drawnUpTo).find(s => s.type !== 'ferry')?.color ?? '#f0a500';
+    ctx.strokeStyle = roadColor;
     ctx.setLineDash([]);
     ctx.beginPath();
     let hasSolid = false;
@@ -162,7 +163,7 @@ export function drawPartialSegment(ctx, seg, frac, cMercX, cMercY, zoom, W, H) {
 
     const w = Math.max(2, W * 0.004);
     ctx.save();
-    ctx.strokeStyle = seg.type === 'ferry' ? '#38bdf8' : '#f0a500';
+    ctx.strokeStyle = seg.type === 'ferry' ? '#38bdf8' : (seg.color ?? '#f0a500');
     ctx.lineWidth   = w;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
