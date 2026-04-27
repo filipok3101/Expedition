@@ -129,6 +129,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 
 .adv-content {
   width:100%; max-width:880px;
+  margin:0 auto;
   flex:1; min-height:0;
   overflow-y:auto; overflow-x:hidden;
   padding:76px 20px 100px;
