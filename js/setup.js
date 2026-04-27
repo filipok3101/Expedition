@@ -251,11 +251,10 @@ function buildCountriesList() {
     [...S.uniqueCountries].sort().forEach(country => {
         const savedVal = saved[`price-${CSS.escape(country)}`] ?? saved[`price-${country}`] ?? '';
         div.innerHTML += `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);margin-bottom:8px;border:1px solid var(--border);">
-                <span style="font-weight:bold;color:var(--accent);">${country}</span>
-                <input type="number" id="price-${country}" placeholder="e.g. 1.65" step="0.01"
-                    value="${savedVal}"
-                    style="width:110px;padding:5px;background:var(--bg);border:1px solid var(--border);color:white;">
+            <div class="adv-input-row">
+                <span class="adv-input-label">${country}</span>
+                <input type="number" id="price-${country}" class="adv-input-field"
+                    placeholder="e.g. 1.65" step="0.01" min="0" value="${savedVal}">
             </div>`;
     });
 
@@ -302,11 +301,12 @@ export function goToAdvanced() {
     transportDiv.innerHTML = '';
     S.uniqueTransports.forEach(type => {
         if (type === 'ferry') return;
+        const icon = type === 'moto' ? '🏍️' : '🚗';
         transportDiv.innerHTML += `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);margin-bottom:8px;border:1px solid var(--border);">
-                <span style="font-weight:bold;color:var(--accent);">${S.transportNames[type] ?? type}</span>
-                <input type="number" id="cons-${type}" placeholder="e.g. 6.5" step="0.1"
-                    style="width:100px;padding:5px;background:var(--bg);border:1px solid var(--border);color:white;">
+            <div class="adv-input-row">
+                <span class="adv-input-label">${icon} ${S.transportNames[type] ?? type}</span>
+                <input type="number" id="cons-${type}" class="adv-input-field"
+                    placeholder="e.g. 6.5" step="0.1" min="0">
             </div>`;
     });
 
