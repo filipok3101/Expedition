@@ -110,6 +110,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
   position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column;
   z-index: 10000; overflow: hidden;
   font-family: 'Share Tech Mono', monospace;
+  align-items: center;
   background-image:
     linear-gradient(rgba(240,124,0,.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(240,124,0,.025) 1px, transparent 1px);
@@ -127,8 +128,8 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 .adv-topbar-step { font-size:.6rem; letter-spacing:2.5px; color:#8a9abb; text-transform:uppercase; position:relative; z-index:3; }
 
 .adv-content {
-  width: 100%; max-width: 880px;
-  margin: 0 auto;
+  width: 840px;
+  max-width: calc(100% - 40px);
   flex:1; min-height:0;
   overflow-y:auto; overflow-x:hidden;
   padding:76px 20px 100px;
