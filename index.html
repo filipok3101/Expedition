@@ -13,61 +13,71 @@
 <body>
 
 <div id="setup-screen">
-    <div id="setup-header">
-        <h2 data-i18n="app_title">🏍️ Expedition 🚗</h2>
-        <p data-i18n="welcome_msg">Welcome to the travel simulator - create your dream route!</p>
-    </div>
-    <div class="setup-content">
-        <div class="setup-left">
-            <h3 data-i18n="add_stop_title">Add stops to the route</h3>
-            <p data-i18n="add_stop_desc">Search for a place or click the map to choose a point, enter a name, then add the stop.</p>
-            <div id="destination-inputs">
-                <div class="setup-search-row">
-                    <input type="text" id="place-search" data-i18n="placeholder_search" placeholder="Search for a place…" autocomplete="off">
-                    <button type="button" class="btn btn-setup-search" id="btn-place-search" data-i18n="btn_search">Search</button>
-                </div>
-                <div id="place-search-results" class="place-search-results" hidden></div>
-                <div id="setup-map" role="application" aria-label="Map to pick route stop"></div>
-                <input type="text" id="location-name" data-i18n="placeholder_name" placeholder="Location name">
-                <select id="transport-type">
-                    <option value="auto">🚗 Auto</option>
-                    <option value="moto">🏍️ Moto</option>
-                </select>
-                <button class="btn" id="btn-add-destination" data-i18n="btn_add">+ ADD LOCATION</button>
-            </div>
-        </div>
-        <div class="setup-right">
-            <h3 data-i18n="your_route_title">Your route</h3>
-            <div class="tour-name-row">
-                <label class="tour-name-label" for="tour-name-input" data-i18n="tour_name_label">NAME YOUR TOUR:</label>
-                <input type="text" id="tour-name-input" class="tour-name-input"
-                    data-i18n="tour_name_placeholder" placeholder="e.g. Alpine Summer 2025"
-                    maxlength="60" autocomplete="off">
-            </div>
-            <div class ="list-wrapper">
-            <div id="custom-stop-list">
-                <p style="color: var(--dim); font-size: 1.25rem; text-align: center;margin-top: 20px;" data-i18n="empty_route">The route is empty for now... 😒</p>
-            </div>
-            </div>
-        </div>
-    </div>
+  <!-- Fullscreen map — z-index 0, sits behind all panels -->
+  <div id="setup-map"></div>
+  <div class="edge-vignette"></div>
 
-    <div class="setup-footer">
-        <p data-i18n="setup_footer_desc">After adding all destinations, click "NEXT" to continue!</p>
-        <button class="btn" id="btn-next" data-i18n="btn_next" disabled>NEXT</button>
+  <!-- Top bar -->
+  <div class="setup-topbar">
+    <div class="setup-brand">EXPEDITION ▸</div>
+    <div class="setup-toptools">
+      <a href="https://buymeacoffee.com/filipok3101" target="_blank" rel="noopener" class="setup-ghost-btn">☕</a>
+      <a href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="setup-ghost-btn">👾</a>
+      <button id="btn-pl" class="setup-ghost-btn">PL</button>
+      <button id="btn-en" class="setup-ghost-btn active">EN</button>
     </div>
-    <div class="lang-switcher">
-         <div class="wm-modal-links">
-            <a id="wm-link-bmc" href="https://buymeacoffee.com/filipok3101" target="_blank" rel="noopener" class="wm-link bmc">
-                 ☕ <span data-i18n="wm_modal_bmc">Buy me a coffee</span>
-            </a>
-            <a id="wm-link-reddit" href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="wm-link reddit">
-                 👾 <span data-i18n="wm_modal_reddit">Visit our GitHub  </span>
-            </a>
-         </div>
-        <button id="btn-pl">PL</button>
-        <button id="btn-en">EN</button>
+  </div>
+
+  <!-- Left dock: add stop -->
+  <div class="setup-dock setup-dock-add">
+    <div class="setup-section-label">▸ ADD STOP</div>
+    <div class="setup-section-sub" data-i18n="add_stop_desc">Search a place or click anywhere on the map</div>
+    <div class="setup-row">
+      <div class="search-wrap">
+        <input type="text" class="setup-ipt" id="place-search"
+          data-i18n="placeholder_search" placeholder="Search for a place…"
+          autocomplete="off" spellcheck="false">
+        <div class="search-dropdown" id="place-search-results"></div>
+      </div>
+      <button type="button" class="setup-btn-primary" id="btn-place-search"
+        data-i18n="btn_search">SCAN</button>
     </div>
+    <input type="text" class="setup-ipt" id="location-name"
+      data-i18n="placeholder_name" placeholder="Location name">
+    <div class="setup-row">
+      <select class="setup-ipt" id="transport-type" style="flex:1;cursor:pointer">
+        <option value="auto">🚗 Auto</option>
+        <option value="moto">🏍️ Moto</option>
+      </select>
+      <button class="setup-btn-primary" id="btn-add-destination"
+        data-i18n="btn_add">+ ADD</button>
+    </div>
+  </div>
+
+  <!-- Right dock: route list -->
+  <div class="setup-dock setup-dock-route">
+    <div class="setup-section-label">
+      ▸ <span data-i18n="your_route_title">YOUR ROUTE</span>
+      / <span id="stop-count">0</span>
+      <span data-i18n="stops_label">STOPS</span>
+    </div>
+    <div class="setup-tour-name-block">
+      <div class="setup-tour-lbl" data-i18n="tour_name_label">NAME YOUR TOUR:</div>
+      <input type="text" id="tour-name-input" class="setup-tour-input"
+        data-i18n="tour_name_placeholder" placeholder="e.g. Alpine Summer 2026"
+        maxlength="60" autocomplete="off">
+    </div>
+    <div class="setup-stop-list" id="custom-stop-list">
+      <p class="stops-empty" data-i18n="empty_route">The route is empty for now... 😒</p>
+    </div>
+  </div>
+
+  <!-- Bottom pill -->
+  <div class="setup-bottom-pill">
+    <button class="setup-btn-ghost" id="btn-reset-stops" data-i18n="btn_reset">⏮ RESET</button>
+    <button class="setup-btn-primary large" id="btn-next"
+      data-i18n="btn_next" disabled>NEXT ▸</button>
+  </div>
 </div>
 
 <div id="advanced-screen" style="display:none">

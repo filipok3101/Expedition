@@ -35,15 +35,27 @@ function clearPickedPoint() {
 function clearSearchResults() {
     const box = document.getElementById('place-search-results');
     if (!box) return;
-    box.innerHTML = '';
-    box.hidden = true;
+    box.classList.remove('open', 'loading');
 }
 
 async function searchPlaces() {
-    const input    = document.getElementById('place-search');
-    const q        = input?.value.trim();
+    const input     = document.getElementById('place-search');
+    const q         = input?.value.trim();
     const resultsEl = document.getElementById('place-search-results');
     if (!q || !resultsEl) return;
+
+    resultsEl.innerHTML = `
+        <div class="sr-loading">
+            <div class="sr-dots"><span></span><span></span><span></span></div>
+            SCANNING...
+        </div>
+        <div class="sr-results"></div>
+        <div class="sr-footer">
+            <span><kbd class="sr-key">↑↓</kbd> NAVIGATE</span>
+            <span><kbd class="sr-key">↵</kbd> SELECT</span>
+            <span><kbd class="sr-key">ESC</kbd> CLOSE</span>
+        </div>`;
+    resultsEl.classList.add('open', 'loading');
 
     const lang = uiLang.code === 'pl' ? 'pl' : 'en';
     const url  = `${NOMINATIM_SEARCH}?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&accept-language=${lang}`;
@@ -52,30 +64,45 @@ async function searchPlaces() {
         const res  = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error('nominatim');
         const data = await res.json();
-        if (!data.length) { alert(t('err_no_results')); clearSearchResults(); return; }
 
-        resultsEl.innerHTML = '';
+        resultsEl.classList.remove('loading');
+        const resultsDiv = resultsEl.querySelector('.sr-results');
+
+        if (!data.length) {
+            resultsDiv.innerHTML = `<div class="sr-item"><span class="sr-flag">🔍</span><div class="sr-name">${t('err_no_results')}</div></div>`;
+            return;
+        }
+
+        resultsDiv.innerHTML = '';
         data.forEach(item => {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'place-search-result';
-            row.textContent = item.display_name || item.name || `${item.lat}, ${item.lon}`;
+            const cc   = (item.address?.country_code ?? '').toUpperCase();
+            const flag = cc.length === 2
+                ? String.fromCodePoint(...[...cc].map(c => 0x1F1E6 - 65 + c.charCodeAt(0)))
+                : '📍';
+            const city    = item.name || (item.display_name || '').split(',')[0].trim();
+            const country = item.address?.country ?? (item.display_name || '').split(',').slice(-1)[0]?.trim() ?? '';
+
+            const row = document.createElement('div');
+            row.className = 'sr-item';
+            row.innerHTML = `<span class="sr-flag">${flag}</span>
+                <div class="sr-name">${city}<small>${country}</small></div>`;
             row.addEventListener('click', () => {
                 const lat = parseFloat(item.lat);
                 const lon = parseFloat(item.lon);
                 if (Number.isNaN(lat) || Number.isNaN(lon)) return;
                 setPickedFromMap(lat, lon, true);
                 const nameInput = document.getElementById('location-name');
-                if (nameInput) nameInput.value = item.name || (item.display_name || '').split(',')[0].trim();
+                if (nameInput) nameInput.value = city;
                 clearSearchResults();
                 input.value = '';
             });
-            resultsEl.appendChild(row);
+            resultsDiv.appendChild(row);
         });
-        resultsEl.hidden = false;
     } catch (e) {
         console.warn(e);
-        alert(t('err_search_failed'));
+        resultsEl.classList.remove('loading');
+        const resultsDiv = resultsEl.querySelector('.sr-results');
+        if (resultsDiv) resultsDiv.innerHTML = `<div class="sr-item"><span class="sr-flag">⚠️</span><div class="sr-name">${t('err_search_failed')}</div></div>`;
     }
 }
 
@@ -84,17 +111,24 @@ export function initSetupMap() {
     const el = document.getElementById('setup-map');
     if (!el || typeof L === 'undefined') return;
 
-    setupMap = L.map('setup-map', { zoomControl: true, center: [52.1, 19.3], zoom: 5 });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(setupMap);
+    setupMap = L.map('setup-map', {
+        zoomControl: false, attributionControl: false,
+        center: [52.1, 19.3], zoom: 5,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(setupMap);
 
     setupMap.on('click', e => setPickedFromMap(e.latlng.lat, e.latlng.lng, false));
+
     document.getElementById('btn-place-search')?.addEventListener('click', searchPlaces);
     document.getElementById('place-search')?.addEventListener('keydown', ev => {
-        if (ev.key === 'Enter') { ev.preventDefault(); searchPlaces(); }
+        if (ev.key === 'Enter')  { ev.preventDefault(); searchPlaces(); }
+        if (ev.key === 'Escape') { clearSearchResults(); }
     });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.setup-dock-add')) clearSearchResults();
+    });
+
     requestAnimationFrame(() => setupMap.invalidateSize());
 }
 
@@ -136,12 +170,14 @@ export async function addDestination() {
 }
 
 export function updateStopsList() {
-    const list = document.getElementById('custom-stop-list');
+    const list    = document.getElementById('custom-stop-list');
+    const countEl = document.getElementById('stop-count');
     list.innerHTML = '';
 
     if (S.customStops.length === 0) {
-        list.innerHTML = `<p style="color:var(--dim);font-size:1.25rem;text-align:center;margin-top:20px;">${t('empty_route')}</p>`;
+        list.innerHTML = `<p class="stops-empty">${t('empty_route')}</p>`;
         document.getElementById('btn-next').disabled = true;
+        if (countEl) countEl.textContent = '0';
         return;
     }
 
@@ -152,29 +188,28 @@ export function updateStopsList() {
         S.uniqueCountries.add(stop.country);
         S.uniqueTransports.add(stop.type);
 
-        list.innerHTML += `
-            <div class="draggable-stop" draggable="true" data-index="${index}">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="cursor:grab;font-size:1.2rem;">↕️</span>
-                    <span><strong>${index + 1}. ${stop.name}</strong>
-                        <span style="color:var(--dim);font-size:0.8rem;">(${stop.country})</span>
-                    </span>
-                </div>
-                <div style="display:flex;align-items:center;gap:15px;">
-                    <span>${S.transportNames[stop.type] ?? stop.type}</span>
-                    <button class="btn-remove-stop" data-index="${index}"
-                        style="background:transparent;border:none;color:#ff4d4d;cursor:pointer;font-size:1.2rem;"
-                        title="Remove">✖</button>
-                </div>
-            </div>`;
+        const modeIcon = stop.type === 'moto' ? '🏍️' : '🚗';
+        const num = String(index + 1).padStart(2, '0');
+        const card = document.createElement('div');
+        card.className = 'stop-card';
+        card.draggable = true;
+        card.dataset.index = index;
+        card.innerHTML = `
+            <span class="stop-handle">↕</span>
+            <span class="stop-num">${num}</span>
+            <div class="stop-card-name">${stop.name}<span class="stop-country"> (${stop.country})</span></div>
+            <span class="stop-mode">${modeIcon}</span>
+            <button class="btn-remove-stop" data-index="${index}" title="Remove">✖</button>`;
+        list.appendChild(card);
     });
 
+    if (countEl) countEl.textContent = S.customStops.length;
     document.getElementById('btn-next').disabled = S.customStops.length < 2;
 
     list.querySelectorAll('.btn-remove-stop').forEach(b =>
         b.addEventListener('click', e => removeStop(parseInt(e.currentTarget.getAttribute('data-index'), 10)))
     );
-    list.querySelectorAll('.draggable-stop').forEach(item => {
+    list.querySelectorAll('.stop-card').forEach(item => {
         item.addEventListener('dragstart', dragStart);
         item.addEventListener('dragover',  dragOver);
         item.addEventListener('drop',      drop);
@@ -186,14 +221,14 @@ export function updateStopsList() {
 export function dragStart(e) {
     S.setDraggedIndex(parseInt(e.currentTarget.getAttribute('data-index'), 10));
     e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => e.target.classList.add('dragging'), 0);
+    setTimeout(() => e.currentTarget.classList.add('is-source'), 0);
 }
 export function dragOver(e)  { e.preventDefault(); }
-export function dragEnter(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-export function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+export function dragEnter(e) { e.preventDefault(); e.currentTarget.classList.add('is-drag-target'); }
+export function dragLeave(e) { e.currentTarget.classList.remove('is-drag-target'); }
 export function drop(e) {
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
+    e.currentTarget.classList.remove('is-drag-target');
     const targetIndex = parseInt(e.currentTarget.getAttribute('data-index'), 10);
     if (S.draggedIndex === targetIndex || S.draggedIndex === null) return;
     const item = S.customStops.splice(S.draggedIndex, 1)[0];
@@ -396,4 +431,11 @@ export function validateAdvancedForm() {
     const inputs = document.querySelectorAll('#advanced-screen input[type="number"]');
     const allFilled = [...inputs].every(i => i.value.trim() !== '');
     document.getElementById('btn-start-sim').disabled = !allFilled;
+}
+
+export function resetAllStops() {
+    S.customStops.length = 0;
+    S.uniqueCountries.clear();
+    S.uniqueTransports.clear();
+    updateStopsList();
 }

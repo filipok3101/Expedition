@@ -6,7 +6,7 @@ import { translations, uiLang } from './translations.js';
 import { preloadRoutes } from './routing.js';
 import { animStep, startSegment, finishJourney, placeFlag, vehIcon, polylineOpts, TYPE_LABELS } from './animation.js';
 import {
-    addDestination, updateStopsList,
+    addDestination, updateStopsList, resetAllStops,
     goToAdvanced, backToSetup,
     dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
     initSetupMap,
@@ -261,14 +261,8 @@ export function changeLanguage(lang) {
         else el.textContent = text;
     });
 
-    const btnEn = document.getElementById('btn-en');
-    const btnPl = document.getElementById('btn-pl');
-    if (btnEn && btnPl) {
-        btnEn.style.background = lang === 'en' ? 'var(--accent)' : 'var(--panel2)';
-        btnEn.style.color      = lang === 'en' ? 'var(--bg)'     : 'var(--text)';
-        btnPl.style.background = lang === 'pl' ? 'var(--accent)' : 'var(--panel2)';
-        btnPl.style.color      = lang === 'pl' ? 'var(--bg)'     : 'var(--text)';
-    }
+    document.getElementById('btn-en')?.classList.toggle('active', lang === 'en');
+    document.getElementById('btn-pl')?.classList.toggle('active', lang === 'pl');
 }
 
 // ── Export panel wiring ─────────────────────────────────────
@@ -379,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-speed-up').addEventListener('click', () => changeSpeed(1));
     document.getElementById('btn-pl').addEventListener('click', () => changeLanguage('pl'));
     document.getElementById('btn-en').addEventListener('click', () => changeLanguage('en'));
+    document.getElementById('btn-reset-stops')?.addEventListener('click', resetAllStops);
 
     changeLanguage('en');
     initSetupMap();
