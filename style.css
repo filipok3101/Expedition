@@ -272,6 +272,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Sha
 .setup-section-label { font-size: .6rem; letter-spacing: 2.5px; color: var(--accent); text-transform: uppercase; margin-bottom: 2px; }
 .setup-section-sub   { font-size: .58rem; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; line-height: 1.5; }
 .setup-row { display: flex; gap: 8px; }
+.search-row { z-index: 20; }
 
 .setup-ipt {
   background: rgba(14,17,23,.85);
