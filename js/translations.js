@@ -7,7 +7,8 @@ export function t(key) {
 
 export const translations = {
     pl: {
-        app_title:              '🏍️ Expedition 🚗',
+        app_title:              'EXPEDITION ▸',
+        hdr_route_lbl:          '▸ TRASA /',
         welcome_msg:            'Witaj w symulatorze podróży - stwórz swoją wymarzoną trasę!',
         add_stop_title:         'Dodawanie przystanków na trasie',
         add_stop_desc:          'Wyszukaj miejscowość albo kliknij mapę, by ustawić punkt. Podaj nazwę i kliknij „DODAJ MIEJSCE".',
@@ -48,7 +49,7 @@ export const translations = {
         stat_cost:              'KOSZT PALIWA',
         info_stage_ready:       'GOTOWY DO STARTU',
         info_sub_ready:         'Skonfiguruj trasę i naciśnij start',
-        right_panel_title:      'TRASA',
+        right_panel_title:      '▸ TRASA',
         btn_play:               '▶ START',
         // Export panel
         exp_trigger_label:      'EKSPORTUJ TRASĘ',
@@ -84,7 +85,8 @@ export const translations = {
         wm_modal_close:         'ROZUMIEM, USUŃ WATERMARK',
     },
     en: {
-        app_title:              '🏍️ Expedition 🚗',
+        app_title:              'EXPEDITION ▸',
+        hdr_route_lbl:          '▸ TOUR /',
         welcome_msg:            'Welcome to the travel simulator - create your dream route!',
         add_stop_title:         'Add stops to the route',
         add_stop_desc:          'Search for a place or click the map to set a point. Enter a name and click "ADD LOCATION".',
@@ -125,7 +127,7 @@ export const translations = {
         stat_cost:              'FUEL COST',
         info_stage_ready:       'READY TO START',
         info_sub_ready:         'Configure your route and press start',
-        right_panel_title:      'ROUTE',
+        right_panel_title:      '▸ ROUTE',
         btn_play:               '▶ START',
         // Export panel
         exp_trigger_label:      'EXPORT YOUR ROUTE',

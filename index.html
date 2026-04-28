@@ -124,8 +124,11 @@
             <div id="map"></div>
         </div>
         <div id="header">
-            <h2 data-i18n="app_title">🏍️ Expedition 🚗</h2>
-            <h1 id="route-title"></h1>
+            <div class="hdr-brand" data-i18n="app_title">EXPEDITION ▸</div>
+            <div class="hdr-route">
+                <span class="hdr-route-lbl" data-i18n="hdr_route_lbl">▸ TOUR /</span>
+                <h1 id="route-title"></h1>
+            </div>
         </div>
         <div id="controls-bottom">
             <div class="progress-container">
@@ -150,10 +153,10 @@
 
     <div id="right-panel">
         <div id="right-header">
-            <h2 data-i18n="right_panel_title">ROUTE</h2>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" id="playBtn" data-i18n="btn_play">▶ START</button>
-                <button class="btn" id="resetBtn" style="padding: 10px;" title="Reset">🔄</button>
+            <h2 data-i18n="right_panel_title">▸ ROUTE</h2>
+            <div class="right-hdr-actions">
+                <button id="playBtn" data-i18n="btn_play">▶ START</button>
+                <button id="resetBtn" title="Reset">🔄</button>
             </div>
         </div>
         <div id="stats-overlay">
