@@ -2,16 +2,23 @@
 // MAIN — punkt wejścia aplikacji
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
-import { translations, uiLang } from './translations.js';
+import { translations, uiLang, t } from './translations.js';
 import { preloadRoutes } from './routing.js';
-import { animStep, startSegment, finishJourney, placeFlag, vehIcon, polylineOpts, TYPE_LABELS } from './animation.js';
+import { animStep, startSegment, placeFlag, vehIcon, polylineOpts, TYPE_LABELS } from './animation.js';
 import {
     addDestination, updateStopsList, resetAllStops,
     goToAdvanced, backToSetup,
-    dragStart, dragOver, dragEnter, dragLeave, drop, removeStop,
     initSetupMap,
 } from './setup.js';
-import { exportGPX, startMP4Recording, recSettings } from './export.js';
+import { exportGPX, startVideoExport, recSettings } from './export.js';
+import { BottomSheet } from './bottom-sheet.js';
+
+const MOBILE_BREAKPOINT = 768;
+const LANG_STORAGE_KEY  = 'expedition.lang';
+
+let setupSheet = null;
+let appSheet   = null;
+const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
 export function initMap() {
     if (S.map) return;
@@ -72,6 +79,7 @@ export function startFinalJourney() {
 
     document.getElementById('loading').style.display = 'flex';
     initMap();
+    ensureAppSheet();
     requestAnimationFrame(() => requestAnimationFrame(() => {
         S.map.invalidateSize(true);
         updateStats();
@@ -80,22 +88,26 @@ export function startFinalJourney() {
 }
 
 export function togglePlay() {
+    if (!S.routeSegments.length) return;   // trasa jeszcze się ładuje
+
     if (S.animRunning) {
         S.setAnimRunning(false);
         S.setLastTs(null);
         cancelAnimationFrame(S.animFrame);
-        document.getElementById('playBtn').textContent = '▶ RESUME';
+        document.getElementById('playBtn').textContent = t('btn_resume');
         document.getElementById('playBtn').classList.remove('active');
     } else {
         S.setAnimRunning(true);
-        document.getElementById('playBtn').textContent = '⏸ PAUSE';
+        document.getElementById('playBtn').textContent = t('btn_pause');
         document.getElementById('playBtn').classList.add('active');
         if (S.curSeg === 0 && S.segFrac === 0) {
             startSegment();
-            document.getElementById('stop-0').classList.add('done');
+            document.getElementById('stop-0')?.classList.add('done');
             S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 11, { animate: true });
         }
         S.setAnimFrame(requestAnimationFrame(animStep));
+        // Mobile: zwiń panel, by mapa była widoczna podczas animacji
+        if (appSheet && appSheet.state === 'full') appSheet.snapTo('peek');
     }
 }
 
@@ -186,10 +198,10 @@ export function jumpToStop(stopIdx) {
             const e = document.getElementById(`stop-${i}`);
             if (e) { e.classList.add('done'); e.classList.remove('current'); }
         });
-        document.getElementById('playBtn').textContent = '✓ FINISH';
+        document.getElementById('playBtn').textContent = t('btn_finish');
         document.getElementById('playBtn').classList.remove('active');
-        document.getElementById('info-stage').textContent = '🏁 Journey complete!';
-        document.getElementById('info-sub').textContent = 'We reached the destination!';
+        document.getElementById('info-stage').textContent = t('info_stage_done');
+        document.getElementById('info-sub').textContent = t('info_sub_done');
         document.getElementById('progress-fill').style.width = '100%';
         updateStats();
         S.map.flyTo([lastStop.lat, lastStop.lon], 14, { animate: true, duration: 1.5 });
@@ -212,18 +224,20 @@ export function jumpToStop(stopIdx) {
     S.map.flyTo([stop.lat, stop.lon], 14, { animate: true, duration: 1.5 });
 
     document.getElementById('progress-fill').style.width = totalKm > 0 ? (doneKm / totalKm * 100) + '%' : '0%';
-    document.getElementById('playBtn').textContent = '▶ RESUME';
+    document.getElementById('playBtn').textContent = t('btn_resume');
     document.getElementById('playBtn').classList.remove('active');
     document.getElementById('info-stage').textContent = `${nextSeg.segFrom} → ${nextSeg.segTo}`;
     const badge = document.getElementById('vbadge');
     badge.className = `vbadge ${nextSeg.type}`;
     badge.textContent = TYPE_LABELS[nextSeg.type] ?? nextSeg.type.toUpperCase();
-    document.getElementById('info-sub').textContent = `Segment: ~${Math.round(nextSeg.distKm)} km · 0%`;
+    document.getElementById('info-sub').textContent = t('info_sub_segment', { km: Math.round(nextSeg.distKm), pct: 0 });
 
     updateStats();
 }
 
 export function resetJourney() {
+    if (!S.map || !S.STOPS.length) return;   // symulacja jeszcze nie wystartowała
+
     S.setAnimRunning(false);
     S.setLastTs(null);
     cancelAnimationFrame(S.animFrame);
@@ -238,12 +252,12 @@ export function resetJourney() {
         if (e) e.classList.remove('done', 'current');
     });
 
-    document.getElementById('playBtn').textContent = '▶ START';
+    document.getElementById('playBtn').textContent = t('btn_play');
     document.getElementById('playBtn').classList.remove('active');
-    document.getElementById('info-stage').textContent = 'READY TO START';
-    document.getElementById('info-sub').textContent   = 'Press START to begin the journey';
+    document.getElementById('info-stage').textContent = t('info_stage_ready');
+    document.getElementById('info-sub').textContent   = t('info_sub_resume');
     document.getElementById('progress-fill').style.width = '0%';
-    document.getElementById('stop-0').classList.add('current');
+    document.getElementById('stop-0')?.classList.add('current');
 
     placeFlag(S.STOPS[0], 0);
     updateStats();
@@ -252,6 +266,7 @@ export function resetJourney() {
 
 export function changeLanguage(lang) {
     uiLang.code = lang;
+    try { localStorage.setItem(LANG_STORAGE_KEY, lang); } catch { /* tryb prywatny */ }
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key  = el.getAttribute('data-i18n');
@@ -263,6 +278,112 @@ export function changeLanguage(lang) {
 
     document.getElementById('btn-en')?.classList.toggle('active', lang === 'en');
     document.getElementById('btn-pl')?.classList.toggle('active', lang === 'pl');
+    document.getElementById('btn-en-mb')?.classList.toggle('active', lang === 'en');
+    document.getElementById('btn-pl-mb')?.classList.toggle('active', lang === 'pl');
+}
+
+function initialLanguage() {
+    try {
+        const saved = localStorage.getItem(LANG_STORAGE_KEY);
+        if (saved === 'pl' || saved === 'en') return saved;
+    } catch { /* ignore */ }
+    return navigator.language?.toLowerCase().startsWith('pl') ? 'pl' : 'en';
+}
+
+// ── Setup screen bottom-sheet (mobile only) ─────────────────
+function initSetupSheet() {
+    const shell = document.getElementById('setup-mobile-shell');
+    if (!shell) return;
+
+    const setup = () => {
+        if (isMobile() && !setupSheet) {
+            setupSheet = new BottomSheet({
+                element: shell,
+                states: ['peek', 'half', 'full'],
+                initial: 'peek'
+            });
+        } else if (!isMobile() && setupSheet) {
+            // Tear down: clear data attrs so desktop CSS takes over
+            shell.removeAttribute('data-state');
+            shell.removeAttribute('data-dragging');
+            shell.style.height = '';
+            setupSheet = null;
+        }
+    };
+    setup();
+
+    // Re-evaluate on viewport changes
+    window.addEventListener('resize', setup);
+
+    // Auto-expand to half when user picks a pin on the map
+    // (so "Location name" + ADD button become reachable)
+    document.addEventListener('expedition:pin-picked', () => {
+        if (setupSheet && setupSheet.state === 'peek') setupSheet.snapTo('half');
+    });
+
+    // Mobile NEXT button mirrors the desktop one
+    document.getElementById('btn-next-peek')?.addEventListener('click', goToAdvanced);
+}
+
+// ── Sim screen bottom-sheet (mobile only) ───────────────────
+function ensureAppSheet() {
+    const panel = document.getElementById('right-panel');
+    if (!panel) return;
+    const appVisible = document.getElementById('app').style.display !== 'none'
+        && document.getElementById('app').style.display !== '';
+
+    if (isMobile() && appVisible && !appSheet) {
+        appSheet = new BottomSheet({
+            element: panel,
+            states: ['peek', 'half', 'full'],
+            initial: 'half'
+        });
+    } else if (!isMobile() && appSheet) {
+        panel.removeAttribute('data-state');
+        panel.removeAttribute('data-dragging');
+        panel.style.height = '';
+        appSheet = null;
+    }
+}
+
+// Sync stop count from desktop label to mobile peek label
+export function syncStopCount() {
+    const n = document.getElementById('stop-count')?.textContent || '0';
+    const mb = document.getElementById('stop-count-mobile');
+    if (mb) mb.textContent = n;
+    const peekBtn = document.getElementById('btn-next-peek');
+    if (peekBtn) peekBtn.disabled = parseInt(n, 10) < 2;
+}
+
+// ── Hamburger menu (mobile topbar) ──────────────────────────
+function initHamburgerMenu() {
+    document.querySelectorAll('.hamburger-btn').forEach(btn => {
+        const menuId = `hamburger-menu-${btn.dataset.menu}`;
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', String(!open));
+            menu.hidden = open;
+        });
+    });
+    // Click outside to close
+    document.addEventListener('click', e => {
+        if (e.target.closest('.hamburger-menu') || e.target.closest('.hamburger-btn')) return;
+        document.querySelectorAll('.hamburger-menu').forEach(m => m.hidden = true);
+        document.querySelectorAll('.hamburger-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    });
+    // Close after clicking a menu item
+    document.querySelectorAll('.hamburger-menu').forEach(m => {
+        m.addEventListener('click', e => {
+            if (e.target.closest('.hamburger-item')) {
+                m.hidden = true;
+                const btn = document.querySelector(`.hamburger-btn[data-menu="${m.dataset.menu}"]`);
+                btn?.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
 }
 
 // ── Export panel wiring ─────────────────────────────────────
@@ -289,6 +410,15 @@ function initExportPanel() {
         });
     });
 
+    // ── Format selector (MP4 / GIF) ──
+    document.getElementById('exp-format-row')?.addEventListener('click', e => {
+        const btn = e.target.closest('.exp-toggle-btn');
+        if (!btn) return;
+        document.querySelectorAll('#exp-format-row .exp-toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        recSettings.format = btn.dataset.format;
+    });
+
     // ── Layout selector ──
     document.getElementById('exp-layout-grid')?.addEventListener('click', e => {
         const btn = e.target.closest('.exp-layout-btn');
@@ -301,8 +431,8 @@ function initExportPanel() {
     // ── GPX export ──
     document.getElementById('exp-gpx-btn')?.addEventListener('click', () => exportGPX());
 
-    // ── MP4 export ──
-    document.getElementById('exp-mp4-btn')?.addEventListener('click', () => startMP4Recording());
+    // ── Video export (MP4 / GIF / WebM fallback) ──
+    document.getElementById('exp-mp4-btn')?.addEventListener('click', () => startVideoExport());
 
     // ── Advanced: Zoom slider ──
     const zoomSlider = document.getElementById('adv-zoom');
@@ -373,9 +503,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-speed-up').addEventListener('click', () => changeSpeed(1));
     document.getElementById('btn-pl').addEventListener('click', () => changeLanguage('pl'));
     document.getElementById('btn-en').addEventListener('click', () => changeLanguage('en'));
+    document.getElementById('btn-pl-mb')?.addEventListener('click', () => changeLanguage('pl'));
+    document.getElementById('btn-en-mb')?.addEventListener('click', () => changeLanguage('en'));
     document.getElementById('btn-reset-stops')?.addEventListener('click', resetAllStops);
 
-    changeLanguage('en');
+    changeLanguage(initialLanguage());
     initSetupMap();
     initExportPanel();
+    initHamburgerMenu();
+    initSetupSheet();
+    window.addEventListener('resize', ensureAppSheet);
 });

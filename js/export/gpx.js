@@ -1,9 +1,10 @@
 import * as S from '../state.js';
 import { escXml, slugify, downloadBlob } from './utils.js';
+import { t } from '../translations.js';
 
 export function exportGPX() {
     if (!S.STOPS.length || !S.routeSegments.length) {
-        alert('No route loaded. Please run the simulation first.');
+        alert(t('alert_gpx_no_route'));
         return;
     }
     const routeName = S.tourName || S.STOPS.map(s => s.name).join(' → ');

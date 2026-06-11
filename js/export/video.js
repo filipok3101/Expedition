@@ -1,35 +1,34 @@
+// ══════════════════════════════════════════════════════════
+// EXPORT WIDEO — MP4 / GIF / WebM (fallback)
+//
+// Architektura:
+//  1. walkFrames(fps) — deterministyczny generator stanów klatek
+//     (pozycja pojazdu, pauzy na przystankach, etykiety, finałowy hold).
+//     Czas liczony W CZASIE FILMU (nr klatki / fps), nie zegarem —
+//     dzięki temu wynik jest identyczny niezależnie od tempa renderu.
+//  2. Tryb offline (MP4/GIF): pętla async renderuje klatki tak szybko,
+//     jak to możliwe i karmi enkoder z encoders.js.
+//  3. Tryb realtime (WebM): gdy brak WebCodecs — MediaRecorder +
+//     canvas.captureStream, ten sam generator taktowany rAF-em.
+// ══════════════════════════════════════════════════════════
 import * as S from '../state.js';
-import { LAYOUTS, recSettings, LABEL_DURATION, LABEL_FADE, STOP_PAUSE_MS, REC_KM_PER_S } from './config.js';
+import {
+    LAYOUTS, recSettings, LABEL_DURATION, LABEL_FADE, STOP_PAUSE_MS,
+    FINAL_HOLD_MS, MIN_FRAMES_PER_SEG, REC_KM_PER_S, VIDEO_FPS, GIF_FPS,
+} from './config.js';
 import { kmToZoom, interpSegPos, downloadBlob, slugify, getNormMercX, getNormMercY } from './utils.js';
-import { drawMapTiles, drawCompletedSegments, drawPartialSegment, drawVehicle, drawStopMarker, drawStopLabel, drawHUD, resetHudState } from './video-renderer.js';
+import {
+    drawMapTiles, drawCompletedSegments, drawPartialSegment, drawVehicle,
+    drawStopMarker, drawStopLabel, drawHUD, resetHudState,
+} from './video-renderer.js';
+import { createMp4Encoder, createGifEncoder } from './encoders.js';
+import { t } from '../translations.js';
 
-// ══════════════════════════════════════════════════════════
-// STAN NAGRYWANIA
-// ══════════════════════════════════════════════════════════
-let recState = {
-    canvas: null, ctx: null, recorder: null,
-    bufferCanvas: null, bufferCtx: null,
-    w: 0, h: 0,
-    running: false, segIdx: 0, segFrac: 0,
-    startTime: null, rafId: null,
-    paused: false, pauseUntil: 0,
-    finishing: false,   // flaga: finalizujemy ostatnią klatkę
-};
-
-let activeLabels  = [];
-let shownLabels   = new Set();
-let recLastTs     = null;
-let recDrawnUpTo  = 0;
-let segStartKm    = [];
-
-// ── Stałe prędkości / fps ──────────────────────────────────
-const TARGET_FPS      = 30;
-const FRAME_INTERVAL  = 1000 / TARGET_FPS;   // ms
-const FIXED_DT        = 1 / TARGET_FPS;      // s – stały krok niezależny od monitora
-
-// ── Minimalna liczba klatek na segment ────────────────────
-// Zapobiega "przeskakiwaniu" bardzo krótkich segmentów w jednej klatce
-const MIN_FRAMES_PER_SEG = 2;
+// ── Stan exportu ───────────────────────────────────────────
+let exporting       = false;
+let cancelRequested = false;
+let activeLabels    = [];   // { stopIdx, triggeredAtMs } — ms czasu filmu
+let segStartKm      = [];
 
 // ══════════════════════════════════════════════════════════
 // POMOCNICZE
@@ -46,9 +45,8 @@ function buildSegStartKm() {
 function globalProgress(segIdx, segFrac) {
     const total = S.totalMotoKm + S.totalFerryKm;
     if (!total) return 0;
-    // Clamp segIdx do zakresu
-    const si  = Math.min(segIdx, S.routeSegments.length - 1);
-    const sf  = (segIdx >= S.routeSegments.length) ? 1 : segFrac;
+    const si   = Math.min(segIdx, S.routeSegments.length - 1);
+    const sf   = (segIdx >= S.routeSegments.length) ? 1 : segFrac;
     const done = (segStartKm[si] ?? 0) + (S.routeSegments[si]?.distKm ?? 0) * sf;
     return Math.min(1, done / total);
 }
@@ -65,39 +63,88 @@ function getSimulatedStats(pct) {
     return { fuel: totalFuel, cost: n > 0 ? totalFuel * (avgPrice / n) : 0 };
 }
 
-function checkStopArrivals(segIdx) {
-    if (segIdx === 0) return;
-    const prevSeg = S.routeSegments[segIdx - 1];
-    if (!prevSeg || prevSeg.segTo === '〜') return;
-    const toIdx = S.STOPS.findIndex(s => s.name === prevSeg.to);
-    if (toIdx < 0 || shownLabels.has(toIdx)) return;
-    shownLabels.add(toIdx);
-    activeLabels.push({ stopIdx: toIdx, triggeredAt: performance.now() });
-    recState.pauseUntil = performance.now() + STOP_PAUSE_MS;
-    recState.paused     = true;
+// ══════════════════════════════════════════════════════════
+// GENERATOR KLATEK
+// Stan klatki: { segIdx, segFrac, drawnUpTo, label, final }
+//   label — indeks przystanku, którego etykietę wyzwolić w tej klatce
+// ══════════════════════════════════════════════════════════
+function* walkFrames(fps) {
+    const segs        = S.routeSegments;
+    const dt          = 1 / fps;
+    const pauseFrames = Math.max(1, Math.round(STOP_PAUSE_MS / 1000 * fps));
+    const holdFrames  = Math.max(1, Math.round(FINAL_HOLD_MS / 1000 * fps));
+    const zoomKm      = Math.max(25, recSettings.zoomKm);
+    const speed       = Math.min(REC_KM_PER_S, (zoomKm / 40) * REC_KM_PER_S); // km/s filmu
+    const maxStep     = 1 / MIN_FRAMES_PER_SEG;   // krótkie segmenty nie znikają w 1 klatce
+    const shown       = new Set([0]);
+
+    let segIdx = 0, segFrac = 0, drawnUpTo = 0;
+
+    // Klatka startowa — pojazd na starcie + etykieta pierwszego przystanku
+    yield { segIdx, segFrac, drawnUpTo, label: 0, final: false };
+
+    while (segIdx < segs.length) {
+        const dist = Math.max(0.001, segs[segIdx].distKm);
+        segFrac   += Math.min(speed * dt / dist, maxStep);
+
+        if (segFrac >= 1) {
+            drawnUpTo = segIdx + 1;
+            segIdx++;
+            segFrac = 0;
+
+            // Pauza + etykieta przy dotarciu do przystanku użytkownika
+            if (segIdx < segs.length) {
+                const prev = segs[segIdx - 1];
+                if (prev.segTo !== '〜') {
+                    const toIdx = S.STOPS.findIndex(s => s.name === prev.to);
+                    if (toIdx > 0 && !shown.has(toIdx)) {
+                        shown.add(toIdx);
+                        yield { segIdx, segFrac: 0, drawnUpTo, label: toIdx, final: false };
+                        for (let p = 1; p < pauseFrames; p++)
+                            yield { segIdx, segFrac: 0, drawnUpTo, label: null, final: false };
+                    }
+                }
+            }
+            continue;
+        }
+
+        yield { segIdx, segFrac, drawnUpTo, label: null, final: false };
+    }
+
+    // Finał — pojazd na mecie, wszystkie flagi, etykieta celu, hold
+    const lastStopIdx = S.STOPS.length - 1;
+    const needLabel   = !shown.has(lastStopIdx);
+    for (let i = 0; i < holdFrames; i++) {
+        yield {
+            segIdx:    segs.length - 1,
+            segFrac:   1,
+            drawnUpTo: segs.length,
+            label:     (i === 0 && needLabel) ? lastStopIdx : null,
+            final:     true,
+        };
+    }
+}
+
+function countFrames(fps) {
+    let n = 0;
+    for (const _ of walkFrames(fps)) n++;
+    return n;
 }
 
 // ══════════════════════════════════════════════════════════
-// RYSOWANIE KLATKI
+// RYSOWANIE KLATKI (czas = ms filmu)
 // ══════════════════════════════════════════════════════════
-async function drawFrame(ctx, W, H, segIdx, segFrac, ts, fuel, cost, waitForNetwork = false) {
-    const pct = globalProgress(segIdx, segFrac);
+async function drawFrame(ctx, W, H, st, mediaMs, fuel, cost, waitForNetwork) {
+    const pct = globalProgress(st.final ? S.routeSegments.length : st.segIdx, st.segFrac);
 
-    // Pozycja kamery
-    let camLat, camLon, camType = 'auto';
-    if (segIdx < S.routeSegments.length) {
-        const [lat, lon] = interpSegPos(S.routeSegments[segIdx], segFrac);
-        camLat = lat; camLon = lon; camType = S.routeSegments[segIdx].type;
-    } else {
-        // Koniec trasy → ostatni stop
-        const last = S.STOPS[S.STOPS.length - 1];
-        camLat = last.lat; camLon = last.lon;
-    }
+    // Pozycja kamery / pojazdu
+    const seg = S.routeSegments[st.segIdx];
+    const [camLat, camLon] = interpSegPos(seg, st.segFrac);
+    const camType = seg.type;
 
-    const currentZoom = Math.max(25, recSettings.zoomKm);
-    const zoom        = kmToZoom(currentZoom, Math.min(W, H));
-    const cMercX      = getNormMercX(camLon);
-    const cMercY      = getNormMercY(camLat);
+    const zoom   = kmToZoom(Math.max(25, recSettings.zoomKm), Math.min(W, H));
+    const cMercX = getNormMercX(camLon);
+    const cMercY = getNormMercY(camLat);
 
     // Tło
     ctx.fillStyle = '#050709';
@@ -106,264 +153,244 @@ async function drawFrame(ctx, W, H, segIdx, segFrac, ts, fuel, cost, waitForNetw
     // Mapa
     await drawMapTiles(ctx, camLat, camLon, zoom, W, H, waitForNetwork);
 
-    // Narysowane segmenty (≤ recDrawnUpTo)
-    drawCompletedSegments(ctx, S.routeSegments, recDrawnUpTo, cMercX, cMercY, zoom, W, H);
+    // Ukończone segmenty
+    drawCompletedSegments(ctx, S.routeSegments, st.drawnUpTo, cMercX, cMercY, zoom, W, H);
 
-    // Aktualny segment (częściowy)
-    if (segIdx < S.routeSegments.length) {
-        drawPartialSegment(ctx, S.routeSegments[segIdx], segFrac, cMercX, cMercY, zoom, W, H);
+    // Bieżący segment (częściowy)
+    if (!st.final && st.segFrac > 0) {
+        drawPartialSegment(ctx, seg, st.segFrac, cMercX, cMercY, zoom, W, H);
     }
 
-    // Flagi przystanków
+    // Flagi przystanków, do których już dotarliśmy
     let arrivedStopIdx = 0;
-    if (recDrawnUpTo > 0) {
-        const last = S.routeSegments[recDrawnUpTo - 1];
+    if (st.drawnUpTo > 0) {
+        const last = S.routeSegments[st.drawnUpTo - 1];
         const idx  = S.STOPS.findIndex(s => s.name === last?.to);
         if (idx >= 0) arrivedStopIdx = idx;
     }
-    // Na końcu trasy pokaż wszystkie flagi
-    if (segIdx >= S.routeSegments.length) arrivedStopIdx = S.STOPS.length - 1;
+    if (st.final) arrivedStopIdx = S.STOPS.length - 1;
 
     S.STOPS.forEach((stop, idx) => {
         if (idx <= arrivedStopIdx) drawStopMarker(ctx, stop, cMercX, cMercY, zoom, W, H);
     });
 
-    // Etykiety przystanków (fade in/out)
-    const now = performance.now();
-    activeLabels = activeLabels.filter(l => now - l.triggeredAt < LABEL_DURATION);
-    activeLabels.forEach(({ stopIdx, triggeredAt }) => {
-        const age   = now - triggeredAt;
+    // Etykiety przystanków (fade in/out — czas filmu)
+    activeLabels = activeLabels.filter(l => mediaMs - l.triggeredAtMs < LABEL_DURATION);
+    activeLabels.forEach(({ stopIdx, triggeredAtMs }) => {
+        const age   = mediaMs - triggeredAtMs;
         const alpha = age < LABEL_FADE ? age / LABEL_FADE
             : age > LABEL_DURATION - LABEL_FADE ? (LABEL_DURATION - age) / LABEL_FADE : 1;
         const stop  = S.STOPS[stopIdx];
         if (stop) drawStopLabel(ctx, stop, alpha, cMercX, cMercY, zoom, W, H);
     });
 
-    // Pojazd (tylko gdy jeszcze w trasie)
-    if (segIdx < S.routeSegments.length) {
-        drawVehicle(ctx, camLat, camLon, camType, cMercX, cMercY, zoom, W, H);
-    }
+    // Pojazd
+    drawVehicle(ctx, camLat, camLon, camType, cMercX, cMercY, zoom, W, H);
 
     // HUD
-    drawHUD(ctx, W, H, pct, ts - recState.startTime, fuel, cost);
+    drawHUD(ctx, W, H, pct, mediaMs, fuel, cost);
+}
+
+function renderState(st, mediaMs) {
+    if (st.label !== null) activeLabels.push({ stopIdx: st.label, triggeredAtMs: mediaMs });
+    const pct = globalProgress(st.final ? S.routeSegments.length : st.segIdx, st.segFrac);
+    return getSimulatedStats(pct);
 }
 
 // ══════════════════════════════════════════════════════════
-// PĘTLA NAGRYWANIA
+// TRYB OFFLINE — MP4 / GIF (szybciej niż czas rzeczywisty)
 // ══════════════════════════════════════════════════════════
-async function recFrame(ts) {
-    if (!recState.running) return;
+async function runOfflineExport(encoder, w, h, fps) {
+    const canvas  = document.createElement('canvas');
+    canvas.width  = w;
+    canvas.height = h;
+    const ctx     = canvas.getContext('2d');
 
-    // ── Throttle do TARGET_FPS ────────────────────────────
-    if (recLastTs === null) recLastTs = ts;
-    const elapsed = ts - recLastTs;
-    if (elapsed < FRAME_INTERVAL) {
-        recState.rafId = requestAnimationFrame(recFrame);
-        return;
-    }
-    recLastTs = ts - (elapsed % FRAME_INTERVAL);
+    const totalFrames = countFrames(fps);
+    let frameIdx      = 0;
 
-    const { bufferCtx, bufferCanvas, ctx, w, h } = recState;
+    updateExportPanel(t('exp_status_tiles'));
 
-    // ── Obsługa pauzy przy przystankach ─────────────────
-    if (recState.paused) {
-        if (ts < recState.pauseUntil) {
-            const { fuel, cost } = getSimulatedStats(globalProgress(recState.segIdx, recState.segFrac));
-            await drawFrame(bufferCtx, w, h, recState.segIdx, recState.segFrac, ts, fuel, cost, false);
-            ctx.drawImage(bufferCanvas, 0, 0);
-            recState.rafId = requestAnimationFrame(recFrame);
+    for (const st of walkFrames(fps)) {
+        if (cancelRequested) {
+            encoder.cancel();
+            updateExportPanel(t('exp_status_cancelled'));
             return;
         }
-        recState.paused = false;
+
+        const mediaMs        = frameIdx / fps * 1000;
+        const { fuel, cost } = renderState(st, mediaMs);
+
+        // waitForNetwork=true — deterministyczna kompletność kafelków
+        // (cache trafia niemal zawsze, więc nie spowalnia istotnie)
+        await drawFrame(ctx, w, h, st, mediaMs, fuel, cost, true);
+        await encoder.addFrame(canvas, frameIdx);
+        frameIdx++;
+
+        if (frameIdx % 5 === 0) {
+            updateExportPanel(t('exp_status_rendering', { pct: Math.round(frameIdx / totalFrames * 100) }));
+            await new Promise(r => setTimeout(r, 0));   // oddech dla UI
+        }
     }
 
-    // ── Koniec trasy – klatka finalizująca ───────────────
-    if (recState.segIdx >= S.routeSegments.length) {
-        if (!recState.finishing) {
-            recState.finishing = true;
-            // Upewnij się że recDrawnUpTo obejmuje wszystkie segmenty
-            recDrawnUpTo = S.routeSegments.length;
+    updateExportPanel(t('exp_status_encoding'));
+    const { blob, ext } = await encoder.finalize();
+    downloadBlob(blob, exportFilename(ext), blob.type);
+    updateExportPanel(t('exp_status_done'));
+    setTimeout(() => updateExportPanel(''), 3000);
+}
 
-            // Pokaż etykietę ostatniego przystanku
-            const lastIdx = S.STOPS.length - 1;
-            if (!shownLabels.has(lastIdx)) {
-                shownLabels.add(lastIdx);
-                activeLabels.push({ stopIdx: lastIdx, triggeredAt: performance.now() });
+// ══════════════════════════════════════════════════════════
+// TRYB REALTIME — WebM (fallback bez WebCodecs)
+// ══════════════════════════════════════════════════════════
+async function runRealtimeWebmExport(w, h, fps) {
+    const canvas  = document.createElement('canvas');
+    canvas.width  = w;
+    canvas.height = h;
+    const ctx     = canvas.getContext('2d');
+
+    updateExportPanel(t('exp_status_tiles'));
+    // Pre-load pierwszej klatki, żeby film nie zaczynał się czarnym ekranem
+    const firstGen = walkFrames(fps);
+    const first    = firstGen.next().value;
+    {
+        const { fuel, cost } = renderState(first, 0);
+        await drawFrame(ctx, w, h, first, 0, fuel, cost, true);
+    }
+    activeLabels = [];
+
+    const stream   = canvas.captureStream(fps);
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 });
+    const chunks   = [];
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+
+    updateExportPanel(t('exp_status_webm_rt'));
+    recorder.start(100);
+
+    const gen           = walkFrames(fps);
+    const frameInterval = 1000 / fps;
+    let   frameIdx      = 0;
+    let   lastTs        = null;
+
+    await new Promise(resolve => {
+        async function tick(ts) {
+            if (cancelRequested) { resolve(); return; }
+            if (lastTs === null) lastTs = ts;
+            if (ts - lastTs < frameInterval) {
+                requestAnimationFrame(tick);
+                return;
             }
+            lastTs = ts - ((ts - lastTs) % frameInterval);
 
-            const { fuel, cost } = getSimulatedStats(1);
-            // Draw final frame with vehicle visible at the destination (last segment, frac=1)
-            await drawFrame(bufferCtx, w, h, S.routeSegments.length - 1, 1, ts, fuel, cost, false);
-            ctx.drawImage(bufferCanvas, 0, 0);
+            const { value: st, done } = gen.next();
+            if (done) { resolve(); return; }
 
-            await new Promise(r => setTimeout(r, 500));
+            const mediaMs        = frameIdx / fps * 1000;
+            const { fuel, cost } = renderState(st, mediaMs);
+            await drawFrame(ctx, w, h, st, mediaMs, fuel, cost, false);
+            frameIdx++;
+
+            requestAnimationFrame(tick);
         }
-        stopRecording();
+        requestAnimationFrame(tick);
+    });
+
+    await new Promise(resolve => {
+        recorder.onstop = resolve;
+        recorder.stop();
+    });
+
+    if (cancelRequested) {
+        updateExportPanel(t('exp_status_cancelled'));
         return;
     }
 
-    // ── Obliczanie postępu segmentu ──────────────────────
-    // Dynamiczna prędkość na podstawie zoomu
-    const currentZoom  = Math.max(25, recSettings.zoomKm);
-    const currentSpeed = Math.min(REC_KM_PER_S, (currentZoom / 40) * REC_KM_PER_S); // km/s animacji
-
-    const seg      = S.routeSegments[recState.segIdx];
-    const dist     = Math.max(0.001, seg.distKm);
-
-    // Minimalny przyrost: nigdy nie skakać ponad 0.5 dystansu segmentu w jednej klatce
-    // – zapobiega "połykaniu" krótkich segmentów
-    const maxStep  = 1 / MIN_FRAMES_PER_SEG;
-    const rawStep  = currentSpeed * FIXED_DT / dist;
-    const step     = Math.min(rawStep, maxStep);
-
-    recState.segFrac += step;
-
-    // ── Zakończenie segmentu ─────────────────────────────
-    if (recState.segFrac >= 1) {
-        recState.segFrac = 1;
-
-        // Dociągnij polilinię do końca segmentu
-        recDrawnUpTo = recState.segIdx + 1;
-
-        recState.segIdx++;
-        recState.segFrac = 0;
-
-        // Don't pause at the final stop — the finishing block handles it cleanly
-        if (recState.segIdx < S.routeSegments.length) {
-            checkStopArrivals(recState.segIdx);
-        }
-
-        // Jeśli to był ostatni segment – następna iteracja obsłuży finalizację
-        recState.rafId = requestAnimationFrame(recFrame);
-        return;
-    }
-
-    // ── Rysuj klatkę ────────────────────────────────────
-    const pct         = globalProgress(recState.segIdx, recState.segFrac);
-    const { fuel, cost } = getSimulatedStats(pct);
-
-    await drawFrame(bufferCtx, w, h, recState.segIdx, recState.segFrac, ts, fuel, cost, false);
-    ctx.drawImage(bufferCanvas, 0, 0);
-
-    recState.rafId = requestAnimationFrame(recFrame);
-}
-
-// ══════════════════════════════════════════════════════════
-// STEROWANIE NAGRYWANIEM
-// ══════════════════════════════════════════════════════════
-function stopRecording() {
-    if (!recState.running) return;
-    recState.running = false;
-    cancelAnimationFrame(recState.rafId);
-    recState.recorder?.stop();
-    // Free precomputed Mercator coords that were added to each segment before recording
-    S.routeSegments.forEach(seg => { delete seg.mercCoords; });
-    setRecordBtn(false);
-    updateExportPanel('');
-    resetHudState();
-}
-
-function setRecordBtn(rec) {
-    const btn = document.getElementById('exp-mp4-btn');
-    if (!btn) return;
-    btn.textContent       = rec ? '⏹ STOP RECORDING' : '🎬 RECORD VIDEO';
-    btn.style.background  = rec ? 'rgba(248,113,113,0.15)' : '';
-    btn.style.borderColor = rec ? '#f87171' : '';
-    btn.style.color       = rec ? '#f87171' : '';
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    downloadBlob(blob, exportFilename('webm'), 'video/webm');
+    updateExportPanel(t('exp_status_done'));
+    setTimeout(() => updateExportPanel(''), 3000);
 }
 
 // ══════════════════════════════════════════════════════════
 // PUBLICZNE API
 // ══════════════════════════════════════════════════════════
-export async function startMP4Recording() {
-    if (!S.routeSegments.length) { alert('Load a route first.'); return; }
+export async function startVideoExport() {
+    if (!S.routeSegments.length) { alert(t('alert_no_route')); return; }
 
-    // Jeśli już nagrywa – zatrzymaj
-    if (recState.running) { stopRecording(); return; }
+    // Drugi klik = anulowanie trwającego exportu
+    if (exporting) { cancelRequested = true; return; }
 
-    const { w, h } = LAYOUTS[recSettings.layout];
-
-    // Ogranicz min zoom do 25 km
-    recSettings.zoomKm = Math.max(25, recSettings.zoomKm);
-    const zoomInput = document.querySelector('#adv-zoom');
-    if (zoomInput && Number(zoomInput.value) < 25) {
-        zoomInput.value = '25';
-        document.getElementById('adv-zoom-val').textContent = '25 km';
-    }
-
-    // Pre-kalkulacja współrzędnych Mercatora dla wszystkich segmentów
-    S.routeSegments.forEach(seg => {
-        if (!seg.mercCoords) {
-            seg.mercCoords = seg.coords.map(([lat, lon]) => [
-                getNormMercX(lon),
-                getNormMercY(lat),
-            ]);
-        }
-    });
-
-    // Reset liczników
-    S.resetKm();
-    S.routeSegments.forEach(seg => S.addTotalKm(seg.type, seg.distKm));
-    buildSegStartKm();
-
-    activeLabels  = [];
-    shownLabels   = new Set();
-    recDrawnUpTo  = 0;
-    recLastTs     = null;
+    exporting       = true;
+    cancelRequested = false;
+    activeLabels    = [];
     resetHudState();
-
-    // Etykieta pierwszego przystanku
-    shownLabels.add(0);
-    activeLabels.push({ stopIdx: 0, triggeredAt: performance.now() });
-
-    // Canvas główny (do MediaRecorder) + bufor (do renderowania)
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d');
-
-    const bufferCanvas = document.createElement('canvas');
-    bufferCanvas.width = w; bufferCanvas.height = h;
-    const bufferCtx = bufferCanvas.getContext('2d');
-
-    // Pre-load kafelków mapy – czekamy żeby pierwsza klatka nie była czarna
-    updateExportPanel('⏳ Pre-loading map tiles…');
-    await drawFrame(bufferCtx, w, h, 0, 0, performance.now(), 0, 0, true);
-    ctx.drawImage(bufferCanvas, 0, 0);
-
-    updateExportPanel('🎬 Preparing…');
-
-    // MediaRecorder
-    const stream   = canvas.captureStream(TARGET_FPS);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9' : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 });
-    const chunks   = [];
-
-    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const name = S.tourName || S.STOPS.map(s => s.name).join('-');
-        downloadBlob(blob, `expedition-${recSettings.layout}-${slugify(name)}.webm`, 'video/webm');
-        updateExportPanel('✅ Download started!');
-        setTimeout(() => updateExportPanel(''), 3000);
-    };
-
-    recorder.start(100);  // chunk co 100ms
-
-    recState = {
-        canvas, ctx, bufferCanvas, bufferCtx, w, h, recorder,
-        running:    true,
-        segIdx:     0,
-        segFrac:    0,
-        startTime:  performance.now(),
-        rafId:      null,
-        paused:     false,
-        pauseUntil: 0,
-        finishing:  false,
-    };
-
     setRecordBtn(true);
-    recState.rafId = requestAnimationFrame(recFrame);
+
+    try {
+        const { w, h } = LAYOUTS[recSettings.layout];
+
+        // Min. zoom 25 km — zsynchronizuj suwak
+        recSettings.zoomKm = Math.max(25, recSettings.zoomKm);
+        const zoomInput = document.querySelector('#adv-zoom');
+        if (zoomInput && Number(zoomInput.value) < 25) {
+            zoomInput.value = '25';
+            const zv = document.getElementById('adv-zoom-val');
+            if (zv) zv.textContent = '25 km';
+        }
+
+        // Prekalkulacja Mercatora (raz, nie co klatkę)
+        S.routeSegments.forEach(seg => {
+            if (!seg.mercCoords) {
+                seg.mercCoords = seg.coords.map(([lat, lon]) => [getNormMercX(lon), getNormMercY(lat)]);
+            }
+        });
+
+        // Liczniki dystansu dla HUD
+        S.resetKm();
+        S.routeSegments.forEach(seg => S.addTotalKm(seg.type, seg.distKm));
+        buildSegStartKm();
+
+        if (recSettings.format === 'gif') {
+            const encoder = await createGifEncoder({ width: w, height: h, fps: GIF_FPS });
+            if (!encoder) throw new Error('GIF encoder unavailable');
+            await runOfflineExport(encoder, w, h, GIF_FPS);
+        } else {
+            const encoder = await createMp4Encoder({ width: w, height: h, fps: VIDEO_FPS });
+            if (encoder) {
+                await runOfflineExport(encoder, w, h, VIDEO_FPS);
+            } else {
+                // Brak WebCodecs/H.264 → WebM w czasie rzeczywistym
+                await runRealtimeWebmExport(w, h, VIDEO_FPS);
+            }
+        }
+    } catch (e) {
+        console.error('Video export failed:', e);
+        updateExportPanel(t('exp_status_error', { msg: e.message }));
+    } finally {
+        exporting       = false;
+        cancelRequested = false;
+        activeLabels    = [];
+        // Zwolnij prekalkulowane współrzędne
+        S.routeSegments.forEach(seg => { delete seg.mercCoords; });
+        setRecordBtn(false);
+        resetHudState();
+    }
+}
+
+function exportFilename(ext) {
+    const name = S.tourName || S.STOPS.map(s => s.name).join('-');
+    return `expedition-${recSettings.layout}-${slugify(name)}.${ext}`;
+}
+
+function setRecordBtn(rec) {
+    const btn = document.getElementById('exp-mp4-btn');
+    if (!btn) return;
+    btn.textContent       = rec ? t('exp_btn_stop') : t('exp_mp4_btn');
+    btn.style.background  = rec ? 'rgba(248,113,113,0.15)' : '';
+    btn.style.borderColor = rec ? '#f87171' : '';
+    btn.style.color       = rec ? '#f87171' : '';
 }
 
 function updateExportPanel(msg) {

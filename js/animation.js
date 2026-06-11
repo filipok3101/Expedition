@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
 import { updateStats } from './main.js';
+import { t } from './translations.js';
 
 export function vehIcon(type) {
     const em  = type === 'ferry' ? '⛴️' : type === 'auto' ? '🚗' : '🏍️';
@@ -64,7 +65,7 @@ function updateInfoBar(seg) {
     badge.className = `vbadge ${seg.type}`;
     badge.textContent = TYPE_LABELS[seg.type] ?? seg.type.toUpperCase();
     document.getElementById('info-sub').textContent =
-        `Segment: ~${Math.round(seg.distKm)} km · ${Math.round(S.segFrac * 100)}%`;
+        t('info_sub_segment', { km: Math.round(seg.distKm), pct: Math.round(S.segFrac * 100) });
 }
 
 export function polylineOpts(seg) {
@@ -81,10 +82,10 @@ export function startSegment() {
 
 export function finishJourney() {
     S.setAnimRunning(false);
-    document.getElementById('playBtn').textContent = '✓ FINISH';
+    document.getElementById('playBtn').textContent = t('btn_finish');
     document.getElementById('playBtn').classList.remove('active');
-    document.getElementById('info-stage').textContent = '🏁 Journey complete!';
-    document.getElementById('info-sub').textContent = 'We reached the destination!';
+    document.getElementById('info-stage').textContent = t('info_stage_done');
+    document.getElementById('info-sub').textContent = t('info_sub_done');
     document.getElementById('progress-fill').style.width = '100%';
     S.finalizeAccum();
     updateStats();

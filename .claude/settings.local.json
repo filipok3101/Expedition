@@ -21,7 +21,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:58641/index.html)",
       "Bash(curl -sI http://localhost:58641/index.html)",
       "Bash(curl -s -o /dev/null -w \"5500=%{http_code}\\\\n\" http://localhost:5500/index.html)",
-      "Bash(curl -s -o /dev/null -w \"5500/=%{http_code}\\\\n\" http://localhost:5500/)"
+      "Bash(curl -s -o /dev/null -w \"5500/=%{http_code}\\\\n\" http://localhost:5500/)",
+      "Bash(powershell -Command \"\\(Get-Content 'C:/Users/filip/Desktop/Expedition/style.css' | Measure-Object -Line\\).Lines\")"
     ]
   }
 }

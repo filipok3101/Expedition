@@ -2,13 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Expedition — browser-based travel route simulator. Plan multi-stop road trips, watch animated journeys, track fuel costs, export GPX and video.">
+    <meta name="theme-color" content="#080b0f">
     <title>🏍️ Expedition 🚗</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/sim.css">
+    <link rel="stylesheet" href="css/advanced.css">
+    <link rel="stylesheet" href="css/setup.css">
+    <link rel="stylesheet" href="css/export.css">
+    <link rel="stylesheet" href="css/mobile.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script type="module" src="js/main.js" defer></script>
+    <script type="module" src="js/main.js"></script>
 </head>
 <body>
 
@@ -21,62 +28,96 @@
   <div class="setup-topbar">
     <div class="setup-brand">EXPEDITION ▸</div>
     <div class="setup-toptools">
-      <a href="https://buymeacoffee.com/filipok3101" target="_blank" rel="noopener" class="setup-ghost-btn">☕</a>
-      <a href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="setup-ghost-btn">👾</a>
-      <button id="btn-pl" class="setup-ghost-btn">PL</button>
-      <button id="btn-en" class="setup-ghost-btn active">EN</button>
+      <a href="https://buymeacoffee.com/filipok3101" target="_blank" rel="noopener" class="setup-ghost-btn topbar-desktop-only">☕</a>
+      <a href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="setup-ghost-btn topbar-desktop-only">👾</a>
+      <button id="btn-pl" class="setup-ghost-btn topbar-desktop-only">PL</button>
+      <button id="btn-en" class="setup-ghost-btn active topbar-desktop-only">EN</button>
+      <button class="hamburger-btn topbar-mobile-only" data-menu="setup" aria-label="Menu" aria-expanded="false">
+        <span class="hamburger-icon">☰</span>
+      </button>
+    </div>
+    <div class="hamburger-menu" id="hamburger-menu-setup" data-menu="setup" hidden>
+      <button id="btn-pl-mb" class="hamburger-item">PL</button>
+      <button id="btn-en-mb" class="hamburger-item active">EN</button>
+      <a href="https://buymeacoffee.com/filipok3101" target="_blank" rel="noopener" class="hamburger-item">☕ BUY ME A COFFEE</a>
+      <a href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="hamburger-item">👾 GITHUB</a>
     </div>
   </div>
 
-  <!-- Left dock: add stop -->
-  <div class="setup-dock setup-dock-add">
-    <div class="setup-section-label">▸ ADD STOP</div>
-    <div class="setup-section-sub" data-i18n="add_stop_desc">Search a place or click anywhere on the map</div>
-    <div class="setup-row search-row">
-      <div class="search-wrap">
-        <input type="text" class="setup-ipt" id="place-search"
-          data-i18n="placeholder_search" placeholder="Search for a place…"
-          autocomplete="off" spellcheck="false">
-        <div class="search-dropdown" id="place-search-results"></div>
+  <!-- Mobile bottom-sheet shell (display:contents on desktop, bottom-sheet on mobile) -->
+  <div id="setup-mobile-shell" data-state="peek">
+
+    <!-- Drag handle (mobile only) -->
+    <div class="bsheet-handle-area mobile-only">
+      <div class="bsheet-handle"></div>
+    </div>
+
+    <!-- Peek row (mobile only, visible at peek state) -->
+    <div class="setup-peek-row mobile-only">
+      <div class="setup-peek-info">
+        <span class="setup-peek-lbl">▸ <span data-i18n="your_route_title">YOUR ROUTE</span></span>
+        <span class="setup-peek-count">/ <span id="stop-count-mobile">0</span> <span data-i18n="stops_label">STOPS</span></span>
       </div>
-      <button type="button" class="setup-btn-primary" id="btn-place-search"
-        data-i18n="btn_search">SCAN</button>
+      <button class="setup-btn-primary" id="btn-next-peek"
+        data-i18n="btn_next" disabled>NEXT ▸</button>
     </div>
-    <input type="text" class="setup-ipt" id="location-name"
-      data-i18n="placeholder_name" placeholder="Location name">
-    <div class="setup-row">
-      <select class="setup-ipt" id="transport-type" style="flex:1;cursor:pointer">
-        <option value="auto">🚗 Auto</option>
-        <option value="moto">🏍️ Moto</option>
-      </select>
-      <button class="setup-btn-primary" id="btn-add-destination"
-        data-i18n="btn_add">+ ADD</button>
-    </div>
-  </div>
 
-  <!-- Right dock: route list -->
-  <div class="setup-dock setup-dock-route">
-    <div class="setup-section-label">
-      ▸ <span data-i18n="your_route_title">YOUR ROUTE</span>
-      / <span id="stop-count">0</span>
-      <span data-i18n="stops_label">STOPS</span>
-    </div>
-    <div class="setup-tour-name-block">
-      <div class="setup-tour-lbl" data-i18n="tour_name_label">NAME YOUR TOUR:</div>
-      <input type="text" id="tour-name-input" class="setup-tour-input"
-        data-i18n="tour_name_placeholder" placeholder="e.g. Alpine Summer 2026"
-        maxlength="60" autocomplete="off">
-    </div>
-    <div class="setup-stop-list" id="custom-stop-list">
-      <p class="stops-empty" data-i18n="empty_route">The route is empty for now... 😒</p>
-    </div>
-  </div>
+    <!-- Mobile body wrapper (scrollable at half/full) -->
+    <div class="setup-mobile-body">
 
-  <!-- Bottom pill -->
-  <div class="setup-bottom-pill">
-    <button class="setup-btn-ghost" id="btn-reset-stops" data-i18n="btn_reset">⏮ RESET</button>
-    <button class="setup-btn-primary large" id="btn-next"
-      data-i18n="btn_next" disabled>NEXT ▸</button>
+      <!-- Left dock: add stop -->
+      <div class="setup-dock setup-dock-add">
+        <div class="setup-section-label">▸ ADD STOP</div>
+        <div class="setup-section-sub" data-i18n="add_stop_desc">Search a place or click anywhere on the map</div>
+        <div class="setup-row search-row">
+          <div class="search-wrap">
+            <input type="text" class="setup-ipt" id="place-search"
+              data-i18n="placeholder_search" placeholder="Search for a place…"
+              autocomplete="off" spellcheck="false">
+            <div class="search-dropdown" id="place-search-results"></div>
+          </div>
+          <button type="button" class="setup-btn-primary" id="btn-place-search"
+            data-i18n="btn_search">SCAN</button>
+        </div>
+        <input type="text" class="setup-ipt" id="location-name"
+          data-i18n="placeholder_name" placeholder="Location name">
+        <div class="setup-row">
+          <select class="setup-ipt" id="transport-type" style="flex:1;cursor:pointer">
+            <option value="auto">🚗 Auto</option>
+            <option value="moto">🏍️ Moto</option>
+          </select>
+          <button class="setup-btn-primary" id="btn-add-destination"
+            data-i18n="btn_add">+ ADD</button>
+        </div>
+      </div>
+
+      <!-- Right dock: route list -->
+      <div class="setup-dock setup-dock-route">
+        <div class="setup-section-label">
+          ▸ <span data-i18n="your_route_title">YOUR ROUTE</span>
+          / <span id="stop-count">0</span>
+          <span data-i18n="stops_label">STOPS</span>
+        </div>
+        <div class="setup-tour-name-block">
+          <div class="setup-tour-lbl" data-i18n="tour_name_label">NAME YOUR TOUR:</div>
+          <input type="text" id="tour-name-input" class="setup-tour-input"
+            data-i18n="tour_name_placeholder" placeholder="e.g. Alpine Summer 2026"
+            maxlength="60" autocomplete="off">
+        </div>
+        <div class="setup-stop-list" id="custom-stop-list">
+          <p class="stops-empty" data-i18n="empty_route">The route is empty for now... 😒</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom pill -->
+    <div class="setup-bottom-pill">
+      <button class="setup-btn-ghost" id="btn-reset-stops" data-i18n="btn_reset">⏮ RESET</button>
+      <button class="setup-btn-primary large" id="btn-next"
+        data-i18n="btn_next" disabled>NEXT ▸</button>
+    </div>
+
   </div>
 </div>
 
@@ -152,6 +193,9 @@
     </div>
 
     <div id="right-panel">
+        <div class="bsheet-handle-area mobile-only">
+            <div class="bsheet-handle"></div>
+        </div>
         <div id="right-header">
             <h2 data-i18n="right_panel_title">▸ ROUTE</h2>
             <div class="right-hdr-actions">
@@ -203,6 +247,10 @@
                             <span class="exp-dot mp4-dot"></span><span data-i18n="exp_video_label">VIDEO EXPORT</span>
                         </div>
                         <p class="exp-hint" data-i18n="exp_video_hint">Animated route — choose your layout:</p>
+                        <div class="exp-toggle-row" id="exp-format-row">
+                            <button class="exp-toggle-btn active" data-format="mp4">🎬 MP4</button>
+                            <button class="exp-toggle-btn" data-format="gif">🖼️ GIF</button>
+                        </div>
                         <div class="exp-layout-grid" id="exp-layout-grid">
                             <button class="exp-layout-btn active" data-layout="fullhd">
                                 <span class="exp-layout-icon">🖥️</span>
@@ -222,8 +270,8 @@
                         </div>
                         <div id="exp-status" class="exp-status"></div>
                         <button class="btn exp-btn mp4" id="exp-mp4-btn" data-i18n="exp_mp4_btn">🎬 SAVE VIDEO</button>
-                        <p class="exp-hint" style="margin-top:6px;font-size:.58rem;opacity:.7;" data-i18n="exp_mp4_note">
-                            Saves as .webm (Chrome/Edge). Route animates at accelerated speed — ~30–90s.
+                        <p class="exp-hint" style="margin-top:6px;font-size:.58rem;opacity:.7;" data-i18n="exp_video_note">
+                            MP4 renders in the background — faster than real time. GIF is best for short routes.
                         </p>
                     </div>
                 </div>
@@ -293,7 +341,7 @@
                         ☕ <span data-i18n="wm_modal_bmc">Buy me a coffee</span>
                     </a>
                     <a id="wm-link-reddit" href="https://github.com/filipok3101/Expedition" target="_blank" rel="noopener" class="wm-link reddit">
-                        👾 <span data-i18n="wm_modal_reddit">Visit our GitHub  </span>
+                        👾 <span data-i18n="wm_modal_reddit">Visit our GitHub</span>
                     </a>
                 </div>
                 <button class="btn wm-modal-close" id="wm-modal-close" data-i18n="wm_modal_close">GOT IT, REMOVE WATERMARK</button>

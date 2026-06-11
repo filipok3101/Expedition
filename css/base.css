@@ -1,0 +1,20 @@
+:root {
+    --bg:          #080b0f;
+    --panel:       #0e1117;
+    --panel-glass: rgba(8,10,16,.84);
+    --panel2:      #131720;
+    --border:      #1d2230;
+    --accent:      #f07c00;
+    --accent-glow: rgba(240,124,0,.45);
+    --top-bar:     #06080d;
+    --accent-hot:  #ff8c1a;
+    --accent-soft: rgba(240,124,0,.12);
+    --route-glow:  rgba(240,124,0,.55);
+    --ferry:       #38bdf8;
+    --ferry-glow:  rgba(56,189,248,.45);
+    --text:        #d2d9e8;
+    --dim:         #5a667a;
+    --red:         #f87171;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; overflow:hidden; background:var(--bg); font-family:'Share Tech Mono',monospace; color:var(--text); }

@@ -1,8 +1,10 @@
 export const uiLang = { code: 'en' };
 
-export function t(key) {
+export function t(key, vars) {
     const pack = translations[uiLang.code] || translations.en;
-    return pack[key] ?? translations.en[key] ?? key;
+    let s = pack[key] ?? translations.en[key] ?? key;
+    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
+    return s;
 }
 
 export const translations = {
@@ -62,7 +64,35 @@ export const translations = {
         exp_layout_instagram:   'Instagram',
         exp_layout_tiktok:      'TikTok',
         exp_mp4_btn:            '🎬 ZAPISZ WIDEO',
-        exp_mp4_note:           'Zapis jako .webm (Chrome/Edge). Trasa animuje w przyspieszeniu — nagranie trwa ~30–90s zależnie od długości trasy.',
+        exp_btn_stop:           '⏹ ZATRZYMAJ',
+        exp_video_note:         'MP4 renderuje się szybciej niż w czasie rzeczywistym. GIF — najlepszy do krótkich tras (większy plik, 15 fps). Brak wsparcia MP4 → automatyczny zapis WebM.',
+        // Export wideo — statusy
+        exp_status_tiles:       '⏳ Wczytywanie kafelków mapy…',
+        exp_status_rendering:   '🎬 Renderowanie… {pct}%',
+        exp_status_encoding:    '📦 Finalizowanie pliku…',
+        exp_status_done:        '✅ Pobieranie rozpoczęte!',
+        exp_status_cancelled:   '✖ Anulowano.',
+        exp_status_error:       '⚠ Eksport nie powiódł się: {msg}',
+        exp_status_webm_rt:     '🔴 Nagrywanie WebM w czasie rzeczywistym — nie przełączaj karty!',
+        // Symulacja — teksty dynamiczne
+        info_stage_done:        '🏁 Podróż zakończona!',
+        info_sub_done:          'Dotarliśmy do celu!',
+        info_sub_resume:        'Naciśnij START, aby rozpocząć podróż',
+        info_sub_segment:       'Odcinek: ~{km} km · {pct}%',
+        btn_pause:              '⏸ PAUZA',
+        btn_resume:             '▶ WZNÓW',
+        btn_finish:             '✓ KONIEC',
+        alert_no_route:         'Najpierw załaduj trasę.',
+        alert_gpx_no_route:     'Brak trasy. Uruchom najpierw symulację.',
+        // Ładowanie tras
+        loading_route:          'Trasa {i}/{n}: {from} → {to}',
+        loading_done:           'Trasy załadowane! Ruszamy.',
+        detecting_countries:    'Wykrywanie krajów na trasie…',
+        // Banery ostrzeżeń
+        rwb_ferry_title:        'WYMUSZONA PRZEPRAWA PROMOWA',
+        rwb_ferry_sub:          'Dla tych odcinków nie istnieje trasa lądowa.',
+        rwb_osrm_title:         'ROUTING ZAPASOWY (OSRM)',
+        rwb_osrm_sub:           'Serwer Valhalla niedostępny — opcje trasy (autostrady, profil moto) nie zostały zastosowane.',
         // Tabs
         exp_tab_gpx:            'GPX',
         exp_tab_video:          'VIDEO',
@@ -140,7 +170,35 @@ export const translations = {
         exp_layout_instagram:   'Instagram',
         exp_layout_tiktok:      'TikTok',
         exp_mp4_btn:            '🎬 SAVE VIDEO',
-        exp_mp4_note:           'Saves as .webm (Chrome/Edge). Route animates at accelerated speed — full recording takes ~30–90s depending on route length.',
+        exp_btn_stop:           '⏹ STOP',
+        exp_video_note:         'MP4 renders faster than real time. GIF — best for short routes (bigger file, 15 fps). No MP4 support → automatic WebM fallback.',
+        // Video export — status line
+        exp_status_tiles:       '⏳ Pre-loading map tiles…',
+        exp_status_rendering:   '🎬 Rendering… {pct}%',
+        exp_status_encoding:    '📦 Finalizing file…',
+        exp_status_done:        '✅ Download started!',
+        exp_status_cancelled:   '✖ Cancelled.',
+        exp_status_error:       '⚠ Export failed: {msg}',
+        exp_status_webm_rt:     '🔴 Recording WebM in real time — keep this tab visible!',
+        // Simulation — dynamic texts
+        info_stage_done:        '🏁 Journey complete!',
+        info_sub_done:          'We reached the destination!',
+        info_sub_resume:        'Press START to begin the journey',
+        info_sub_segment:       'Segment: ~{km} km · {pct}%',
+        btn_pause:              '⏸ PAUSE',
+        btn_resume:             '▶ RESUME',
+        btn_finish:             '✓ FINISH',
+        alert_no_route:         'Load a route first.',
+        alert_gpx_no_route:     'No route loaded. Please run the simulation first.',
+        // Route loading
+        loading_route:          'Route {i}/{n}: {from} → {to}',
+        loading_done:           'Routes loaded! Ready to go.',
+        detecting_countries:    'Detecting countries along the route…',
+        // Warning banners
+        rwb_ferry_title:        'FORCED FERRY CROSSING',
+        rwb_ferry_sub:          'No viable land route exists for these segments.',
+        rwb_osrm_title:         'FALLBACK ROUTING (OSRM)',
+        rwb_osrm_sub:           'Valhalla server unavailable — route options (motorways, moto profile) were not applied.',
         // Tabs
         exp_tab_gpx:            'GPX',
         exp_tab_video:          'VIDEO',

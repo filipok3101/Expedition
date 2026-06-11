@@ -1,10 +1,14 @@
 // ══════════════════════════════════════════════════════════
-// ROUTING — obliczenia tras i pobieranie danych z Valhalla
-// Ferry wykrywane automatycznie z manewrów (travel_mode === 'ferry')
+// ROUTING — obliczanie tras
+// Router główny: Valhalla (profile auto/motorcycle, opcje trasy).
+// Router zapasowy: OSRM (gdy Valhalla niedostępna; tylko driving).
+// Promy wykrywane automatycznie: Valhalla → maneuver.type === 28,
+// OSRM → step.mode === 'ferry'.
 // ══════════════════════════════════════════════════════════
 import * as S from './state.js';
 import { placeFlag } from './animation.js';
 import { t } from './translations.js';
+import { valhallaRoute, osrmRoute } from './api.js';
 
 export function haversineKm(a, b) {
     const R = 6371;
@@ -58,11 +62,32 @@ function decodePolyline6(encoded) {
     return coords;
 }
 
+// Skleja kolejne fragmenty tego samego trybu (road/ferry) w pod-segmenty
+function mergeModeRuns(runs) {
+    const subSegs = [];
+    let curMode = null, curCoords = [];
+    for (const { mode, pts } of runs) {
+        if (pts.length < 2) continue;
+        if (mode !== curMode) {
+            if (curCoords.length && curMode !== null)
+                subSegs.push({ coords: densify(curCoords, 5), type: curMode });
+            curMode   = mode;
+            curCoords = pts;
+        } else {
+            curCoords = curCoords.concat(pts.slice(1));
+        }
+    }
+    if (curCoords.length && curMode !== null)
+        subSegs.push({ coords: densify(curCoords, 5), type: curMode });
+    return subSegs;
+}
+
 async function fetchValhallaChunk(from, to, costing, avoidMotorways) {
-    const fromLoc = { lon: from[1], lat: from[0] };
-    const toLoc   = { lon: to[1],   lat: to[0] };
     const body = {
-        locations: [fromLoc, toLoc],
+        locations: [
+            { lon: from[1], lat: from[0] },
+            { lon: to[1],   lat: to[0]   },
+        ],
         costing,
         costing_options: {
             [costing]: {
@@ -73,61 +98,72 @@ async function fetchValhallaChunk(from, to, costing, avoidMotorways) {
         directions_options: { units: 'km' },
     };
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-            const ctrl = new AbortController();
-            const tid  = setTimeout(() => ctrl.abort(), 15000);
-            const r    = await fetch('https://valhalla1.openstreetmap.de/route', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(body),
-                signal:  ctrl.signal,
-            });
-            clearTimeout(tid);
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            const d = await r.json();
-            if (!d.trip?.legs?.[0]) throw new Error('No route in Valhalla response');
+    const d = await valhallaRoute(body);
+    const leg = d.trip?.legs?.[0];
+    if (!leg) throw new Error('No route in Valhalla response');
 
-            const leg       = d.trip.legs[0];
-            const allCoords = decodePolyline6(leg.shape);
+    const allCoords = decodePolyline6(leg.shape);
+    const runs = (leg.maneuvers ?? []).map(m => ({
+        // type 28 = FerryEnter (faktyczna przeprawa); travel_mode bywa zawsze "drive"
+        mode: m.type === 28 ? 'ferry' : 'road',
+        pts:  allCoords.slice(m.begin_shape_index, m.end_shape_index + 1),
+    }));
 
-            const subSegs = [];
-            let curMode   = null;
-            let curCoords = [];
+    const subSegs = mergeModeRuns(runs);
+    return subSegs.length ? subSegs : [{ coords: densify(allCoords, 5), type: 'road' }];
+}
 
-            for (const maneuver of leg.maneuvers ?? []) {
-                // type 28 = FerryEnter (actual sea crossing); travel_mode is always "drive"
-                const mode = maneuver.type === 28 ? 'ferry' : 'road';
-                const pts  = allCoords.slice(
-                    maneuver.begin_shape_index,
-                    maneuver.end_shape_index + 1,
-                );
-                if (pts.length < 2) continue;
+async function fetchOsrmChunk(from, to) {
+    const d = await osrmRoute(from, to);
+    if (d.code !== 'Ok' || !d.routes?.[0]?.legs?.[0]) throw new Error('No route in OSRM response');
 
-                if (mode !== curMode) {
-                    if (curCoords.length && curMode !== null)
-                        subSegs.push({ coords: densify(curCoords, 5), type: curMode });
-                    curMode   = mode;
-                    curCoords = pts;
-                } else {
-                    curCoords = curCoords.concat(pts.slice(1));
-                }
-            }
-            if (curCoords.length && curMode !== null)
-                subSegs.push({ coords: densify(curCoords, 5), type: curMode });
+    const runs = d.routes[0].legs[0].steps.map(step => ({
+        mode: step.mode === 'ferry' ? 'ferry' : 'road',
+        pts:  step.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+    }));
 
-            if (!subSegs.length)
-                return [{ coords: densify(allCoords, 5), type: 'road' }];
+    const subSegs = mergeModeRuns(runs);
+    if (!subSegs.length) throw new Error('Empty OSRM geometry');
+    return subSegs;
+}
 
-            return subSegs;
-        } catch (e) {
-            console.warn(`Valhalla attempt ${attempt} failed:`, e.message);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
-        }
+/**
+ * Pobiera trasę dla pary przystanków.
+ * @returns {{ subSegs: Array, source: 'valhalla'|'osrm' } | null}
+ */
+async function fetchRouteChunk(from, to, costing, avoidMotorways) {
+    try {
+        return { subSegs: await fetchValhallaChunk(from, to, costing, avoidMotorways), source: 'valhalla' };
+    } catch (e) {
+        console.warn('Valhalla failed, trying OSRM fallback:', e.message);
     }
+    try {
+        return { subSegs: await fetchOsrmChunk(from, to), source: 'osrm' };
+    } catch (e) {
+        console.error('OSRM fallback failed too:', e.message);
+        return null;
+    }
+}
 
-    console.error('Valhalla unavailable — segment too long or unreachable');
-    return null;
+// ── Banery ostrzeżeń nad listą przystanków ──────────────────
+function showWarningBanner(id, title, listItems, sub) {
+    document.getElementById(id)?.remove();
+    const banner = document.createElement('div');
+    banner.id        = id;
+    banner.className = 'route-warning-banner';
+    banner.innerHTML = `
+        <div class="rwb-icon">⚠️</div>
+        <div class="rwb-body">
+            <strong></strong>
+            <div class="rwb-list"></div>
+            <div class="rwb-sub"></div>
+        </div>
+        <button class="rwb-close">✕</button>`;
+    banner.querySelector('strong').textContent    = title;
+    banner.querySelector('.rwb-list').innerHTML   = listItems.map(s => `• ${s}`).join('<br>');
+    banner.querySelector('.rwb-sub').textContent  = sub;
+    banner.querySelector('.rwb-close').addEventListener('click', () => banner.remove());
+    document.getElementById('stop-list').insertAdjacentElement('beforebegin', banner);
 }
 
 export async function preloadRoutes() {
@@ -136,37 +172,38 @@ export async function preloadRoutes() {
 
     S.setRouteSegments([]);
     S.resetKm();
+    fill.style.width = '0%';
 
-    const segments = [];
+    const segments     = [];
+    const osrmFallback = [];   // pary, dla których użyto OSRM
+    const nPairs       = S.STOPS.length - 1;
 
-    for (let i = 0; i < S.STOPS.length - 1; i++) {
+    for (let i = 0; i < nPairs; i++) {
         const from     = S.STOPS[i];
         const to       = S.STOPS[i + 1];
         const userType = to.type;
         const costing  = userType === 'moto' ? 'motorcycle' : 'auto';
 
-        msg.textContent = `Route ${i + 1}/${S.STOPS.length - 1}: ${from.name} → ${to.name}`;
-        fill.style.width = ((i / (S.STOPS.length - 2)) * 100) + '%';
+        msg.textContent = t('loading_route', { i: i + 1, n: nPairs, from: from.name, to: to.name });
 
-        const perSeg = S.routeOptions.motorwayPerSegment;
+        const perSeg     = S.routeOptions.motorwayPerSegment;
         const segAvoidMw = perSeg.length > i ? perSeg[i] : S.routeOptions.avoidMotorways;
 
-        const rawSubs = await fetchValhallaChunk([from.lat, from.lon], [to.lat, to.lon], costing, segAvoidMw);
+        const result = await fetchRouteChunk([from.lat, from.lon], [to.lat, to.lon], costing, segAvoidMw);
 
-        if (!rawSubs) {
+        if (!result) {
             document.getElementById('loading').style.display = 'none';
             const dist = haversineKm([from.lat, from.lon], [to.lat, to.lon]);
-            alert(t('err_segment_too_long')
-                .replace('{from}', from.name)
-                .replace('{to}', to.name)
-                .replace('{km}', Math.round(dist)));
+            alert(t('err_segment_too_long', { from: from.name, to: to.name, km: Math.round(dist) }));
             document.getElementById('app').style.display = 'none';
-            document.getElementById('setup-screen').style.display = 'flex';
+            document.getElementById('setup-screen').style.display = 'block';
             window.dispatchEvent(new Event('resize'));
             return;
         }
 
-        const subSegs = rawSubs.map(s => ({
+        if (result.source === 'osrm') osrmFallback.push(`${from.name} → ${to.name}`);
+
+        const subSegs = result.subSegs.map(s => ({
             coords: s.coords,
             type:   s.type === 'ferry' ? 'ferry' : userType,
         }));
@@ -181,60 +218,53 @@ export async function preloadRoutes() {
 
             const isFirst = si === 0;
             const isLast  = si === subSegs.length - 1;
-            const segFrom = isFirst ? from.name : '〜';
-            const segTo   = isLast  ? to.name   : '〜';
 
             segments.push({
                 coords, cum, type, distKm,
                 from:    from.name,
                 to:      to.name,
-                segFrom, segTo,
+                segFrom: isFirst ? from.name : '〜',
+                segTo:   isLast  ? to.name   : '〜',
                 country: from.country,
                 noFuel:  type === 'ferry',
-                color:   (segAvoidMw && type !== 'ferry') ? '#e53935' : null,
+                color:   (segAvoidMw && type !== 'ferry' && result.source === 'valhalla') ? '#e53935' : null,
             });
 
             S.addTotalKm(type, distKm);
         }
 
+        fill.style.width = ((i + 1) / nPairs * 100) + '%';
         await new Promise(r => setTimeout(r, 80));
     }
 
     S.setRouteSegments(segments);
 
-    fill.style.width = '100%';
-    msg.textContent = 'Routes loaded! Ready to go.';
+    msg.textContent = t('loading_done');
     await new Promise(r => setTimeout(r, 600));
     document.getElementById('loading').style.display = 'none';
 
-    // Wymuś-prom: gdy avoidFerries=true ale Valhalla mimo to użyła promu
-    // (nie ma trasy lądowej — np. Tallinn↔Helsinki, trasy na wyspy)
+    // Baner: użyto routera zapasowego
+    if (osrmFallback.length) {
+        showWarningBanner('osrm-warning-banner', t('rwb_osrm_title'), osrmFallback, t('rwb_osrm_sub'));
+    }
+
+    // Baner: wymuszony prom — avoidFerries=true, ale nie istnieje trasa lądowa
+    // (np. Tallinn↔Helsinki, trasy na wyspy)
     if (S.routeOptions.avoidFerries) {
         const forced = [];
-        for (let i = 0; i < S.STOPS.length - 1; i++) {
+        for (let i = 0; i < nPairs; i++) {
             const fn = S.STOPS[i].name;
             const tn = S.STOPS[i + 1].name;
             if (segments.some(s => s.from === fn && s.to === tn && s.type === 'ferry'))
                 forced.push(`${fn} → ${tn}`);
         }
         if (forced.length) {
-            document.getElementById('route-warning-banner')?.remove();
-            const banner = document.createElement('div');
-            banner.id        = 'route-warning-banner';
-            banner.className = 'route-warning-banner';
-            banner.innerHTML = `
-                <div class="rwb-icon">⚠️</div>
-                <div class="rwb-body">
-                    <strong>FORCED FERRY CROSSING</strong>
-                    <div class="rwb-list">${forced.map(s => `• ${s}`).join('<br>')}</div>
-                    <div class="rwb-sub">No viable land route exists for these segments.</div>
-                </div>
-                <button class="rwb-close" onclick="this.closest('#route-warning-banner').remove()">✕</button>`;
-            document.getElementById('stop-list').insertAdjacentElement('beforebegin', banner);
+            showWarningBanner('route-warning-banner', t('rwb_ferry_title'), forced, t('rwb_ferry_sub'));
         }
     }
 
-    for (let i = 0; i < S.STOPS.length - 1; i++) {
+    // Dystanse pod wierszami przystanków
+    for (let i = 0; i < nPairs; i++) {
         const fn = S.STOPS[i].name;
         const tn = S.STOPS[i + 1].name;
         let total = 0, ferry = 0;
@@ -249,11 +279,10 @@ export async function preloadRoutes() {
         el.textContent = ferry > 0
             ? `↓ ~${Math.round(total)} km  (⛴️ ~${Math.round(ferry)} km)`
             : `↓ ~${Math.round(total)} km`;
-        const row = document.getElementById(`stop-${i}`);
-        if (row) row.insertAdjacentElement('afterend', el);
+        document.getElementById(`stop-${i}`)?.insertAdjacentElement('afterend', el);
     }
 
     placeFlag(S.STOPS[0], 0);
-    document.getElementById('stop-0').classList.add('current');
+    document.getElementById('stop-0')?.classList.add('current');
     S.map.setView([S.STOPS[0].lat, S.STOPS[0].lon], 10, { animate: false });
 }

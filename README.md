@@ -12,16 +12,16 @@ Expedition is a sleek, single-page application (SPA) designed for travelers, mot
 - **Name Your Tour** — Give your expedition a custom name (e.g. *Alpine Summer 2026*) that appears in the header, GPX metadata, and exported videos.
 - **Dynamic Route Animation** — Watch your journey unfold in real time. Control the vehicle speed (¼× to 32×) and visualize the path before you even hit the road.
 - **Fuel & Cost Calculator** — Input your fuel consumption and local gas prices per country to get a precise estimate of your trip's expenses.
-- **Automated Ferry Detection** — The system intelligently identifies sea crossings from OSRM routing data and automatically excludes them from fuel calculations.
+- **Automated Ferry Detection** — The system intelligently identifies sea crossings from Valhalla routing data and automatically excludes them from fuel calculations.
 - **GPX Export** — Download your full route as a `.gpx` file with waypoints, track data, and metadata. Import directly into Garmin, Google Maps, OsmAnd, Komoot, and more.
-- **Video Export** — Record an animated replay of your route as a `.webm` video. Choose from three layouts:
+- **Video Export** — Render an animated replay of your route as an `.mp4` video or animated `.gif` (with automatic `.webm` fallback on browsers without WebCodecs). Rendering runs faster than real time. Choose from three layouts:
   - 🖥️ **Full HD** (1920×1080) — for YouTube and desktop
   - 🟥 **Instagram** (1080×1080) — square format for posts
   - 📱 **TikTok** (1080×1920) — vertical format for Reels & TikTok
 - **Advanced Video Settings** — Fine-tune your export with camera zoom control, map style (Dark or OSM), toggleable stats overlay, and an optional watermark.
 - **Bilingual UI** — Switch between English and Polish at any time.
 
-> **⚠️ Video Export Note:** Keep the Expedition tab active and visible during the entire recording process. Switching to another browser tab will cause the animation to throttle, resulting in frame drops, stuttering, or gaps in the exported video.
+> **⚠️ Video Export Note:** MP4 and GIF exports render off-screen and are not affected by tab switching. Only the legacy WebM fallback (browsers without WebCodecs) records in real time — in that case keep the tab visible to avoid frame drops.
 
 ---
 
@@ -63,9 +63,9 @@ No build step required — Expedition runs entirely in the browser using vanilla
 ## 🛠️ Tech Stack
 
 - **Frontend:** Vanilla JavaScript (ES6 modules), HTML5, CSS3
-- **Maps & Routing:** [Leaflet](https://leafletjs.com/) + [OSRM](http://project-osrm.org/)
+- **Maps & Routing:** [Leaflet](https://leafletjs.com/) + [Valhalla](https://github.com/valhalla/valhalla) (with [OSRM](http://project-osrm.org/) as automatic fallback)
 - **Geocoding:** [Nominatim](https://nominatim.org/) + [BigDataCloud](https://www.bigdatacloud.com/) (reverse geocoding)
-- **Video Export:** `MediaRecorder` API + `canvas.captureStream` (Chrome/Edge)
+- **Video Export:** WebCodecs (`VideoEncoder`) + [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) for MP4, [gifenc](https://github.com/mattdesl/gifenc) for GIF, `MediaRecorder` as WebM fallback
 - **Map Tiles:** [OpenStreetMap](https://www.openstreetmap.org/) + [CartoDB Dark](https://carto.com/basemaps/) (for video export)
 
 ---
@@ -75,19 +75,28 @@ No build step required — Expedition runs entirely in the browser using vanilla
 ```
 Expedition/
 ├── index.html                 # Main HTML — three-screen SPA
-├── style.css                  # All styles (setup, simulation, export panel, modals)
+├── css/
+│   ├── base.css               # CSS variables, reset, typography
+│   ├── sim.css                # Simulation screen (map, panels, HUD)
+│   ├── advanced.css           # Costs & fuel screen
+│   ├── setup.css              # Route setup screen
+│   ├── export.css             # Export panel, tabs, watermark modal
+│   └── mobile.css             # Mobile breakpoint (≤768px) + bottom sheets
 ├── js/
 │   ├── main.js                # Entry point, map init, controls, export panel wiring
 │   ├── state.js               # Single source of truth — all shared mutable state
+│   ├── api.js                 # External API access (timeouts, retries, fallbacks)
 │   ├── setup.js               # Route setup screen (search, map clicks, drag & drop)
-│   ├── routing.js             # OSRM route fetching, ferry detection, segment building
+│   ├── routing.js             # Valhalla route fetching (OSRM fallback), ferry detection
 │   ├── animation.js           # requestAnimationFrame loop for live map animation
+│   ├── bottom-sheet.js        # Reusable mobile bottom-sheet component
 │   ├── translations.js        # EN/PL string lookup
 │   ├── export.js              # Barrel re-export for export modules
 │   └── export/
 │       ├── config.js          # Layout dimensions, tile providers, recording settings
 │       ├── gpx.js             # GPX file generation and download
-│       ├── video.js           # MediaRecorder-based video recording loop
+│       ├── video.js           # Frame walker + MP4/GIF offline export + WebM fallback
+│       ├── encoders.js        # WebCodecs/mp4-muxer (MP4) and gifenc (GIF) encoders
 │       ├── video-renderer.js  # Canvas drawing: tiles, routes, vehicle, HUD
 │       └── utils.js           # Mercator math, geo helpers, download utilities
 ├── assets/
@@ -102,10 +111,9 @@ Expedition/
 
 ## 🗺️ Roadmap
 
-Future updates will include a migration to the [Valhalla](https://github.com/valhalla/valhalla) routing engine to unlock:
-
-- [ ] **Scenic Routing** — A "motorcycle mode" to prioritize curvy roads and avoid highways
-- [ ] **Advanced Avoidance** — Skip ferries, tolls, or specific regions with one click
+- [x] **Valhalla Routing** — ~~Migration to the Valhalla routing engine~~ ✅ Shipped (with automatic OSRM fallback)!
+- [x] **Scenic Routing** — ~~A "motorcycle mode" with per-segment motorway avoidance~~ ✅ Shipped!
+- [x] **Advanced Avoidance** — ~~Skip ferries or motorways with one click~~ ✅ Shipped!
 - [x] **Export & Share** — ~~Download your route as a `.gpx` file or export the animation as a video~~ ✅ Shipped!
 - [ ] **Journey Storytelling** — Attach photos to specific stops that pop up during the animation
 - [ ] **Global Reach** — Expanded map data for regions worldwide

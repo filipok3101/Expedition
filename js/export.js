@@ -3,5 +3,5 @@
 // ══════════════════════════════════════════════════════════
 
 export { exportGPX } from './export/gpx.js';
-export { startMP4Recording } from './export/video.js';
+export { startVideoExport } from './export/video.js';
 export { recSettings } from './export/config.js';

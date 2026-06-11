@@ -1,0 +1,341 @@
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE / RESPONSIVE — Section 1: framework primitives
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Hamburger button (visible on mobile only) ── */
+.hamburger-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .2s; padding: 0;
+}
+.hamburger-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+.hamburger-btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.hamburger-icon { font-size: 1rem; line-height: 1; }
+
+/* ── Hamburger dropdown menu ── */
+.hamburger-menu {
+    position: absolute; top: calc(100% + 4px); right: 14px;
+    min-width: 180px; z-index: 600;
+    background: var(--top-bar);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 24px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.2);
+    display: flex; flex-direction: column;
+    animation: s-dropDown .18s ease-out both;
+}
+.hamburger-menu::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 3px);
+}
+.hamburger-menu::after {
+    content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
+    box-shadow: 0 0 6px var(--accent-glow); opacity: .85;
+}
+.hamburger-menu[hidden] { display: none; }
+.hamburger-item {
+    background: transparent; border: none; border-bottom: 1px solid var(--border);
+    color: var(--text); font-family: 'Share Tech Mono', monospace;
+    font-size: .72rem; letter-spacing: 2px; text-transform: uppercase;
+    padding: 12px 14px; cursor: pointer; text-decoration: none;
+    text-align: left; transition: all .15s;
+    position: relative; z-index: 1;
+}
+.hamburger-item:last-child { border-bottom: none; }
+.hamburger-item:hover { background: var(--accent-soft); color: var(--accent); }
+.hamburger-item.active { color: var(--accent); background: rgba(240,124,0,.08); }
+
+/* ── Bottom-sheet primitive (reusable shell) ── */
+.bsheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 600;
+    background: rgba(8,10,16,.92);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(16px) saturate(1.3);
+    box-shadow: 0 -16px 40px rgba(0,0,0,.6);
+    display: flex; flex-direction: column;
+    height: var(--bsheet-peek, 88px);
+    transition: height .32s cubic-bezier(.32,.72,0,1);
+    touch-action: none; /* JS handles drag */
+    overflow: hidden;
+}
+.bsheet::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 3px);
+    z-index: 0;
+}
+.bsheet::after {
+    content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 70%, transparent);
+    box-shadow: 0 0 8px var(--accent-glow); opacity: .85;
+    z-index: 1;
+}
+.bsheet[data-state="peek"]  { height: var(--bsheet-peek, 88px); }
+.bsheet[data-state="half"]  { height: var(--bsheet-half, 50svh); }
+.bsheet[data-state="full"]  { height: var(--bsheet-full, 92svh); }
+.bsheet[data-dragging="true"] { transition: none; }
+
+.bsheet-handle-area {
+    flex-shrink: 0; padding: 8px 0 6px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab; touch-action: none;
+    position: relative; z-index: 2;
+}
+.bsheet-handle-area:active { cursor: grabbing; }
+.bsheet-handle {
+    width: 38px; height: 4px; border-radius: 2px;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent-glow);
+    opacity: .85; transition: opacity .2s, transform .2s;
+}
+.bsheet-handle-area:hover .bsheet-handle { opacity: 1; transform: scaleY(1.4); }
+
+.bsheet-content {
+    flex: 1; min-height: 0;
+    overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    position: relative; z-index: 2;
+    padding: 0 16px 16px;
+}
+.bsheet-content::-webkit-scrollbar { width: 4px; }
+.bsheet-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* peek state: hide scrollable area beyond peek-row */
+.bsheet[data-state="peek"] .bsheet-content { overflow: hidden; }
+
+/* ── Mobile reorder buttons (always in DOM, hidden on desktop) ── */
+.stop-reorder {
+    display: none;
+    flex-direction: column; gap: 2px;
+    margin-right: -2px;
+}
+.stop-reorder button {
+    background: rgba(8,10,16,.5); border: 1px solid var(--border);
+    color: var(--dim); font-size: .65rem; line-height: 1;
+    padding: 3px 5px; cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.stop-reorder button:hover:not(:disabled) {
+    color: var(--accent); border-color: var(--accent);
+}
+.stop-reorder button:disabled {
+    opacity: .25; cursor: not-allowed;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Visibility helpers (default: desktop visible, mobile hidden)
+   Mobile breakpoint flips them in @media block below.
+   ────────────────────────────────────────────────────────── */
+.topbar-mobile-only { display: none; }
+.mobile-only        { display: none; }
+
+/* On desktop, the mobile-shell is transparent (children act as if no wrapper) */
+#setup-mobile-shell { display: contents; }
+.setup-mobile-body  { display: contents; }
+
+/* ══════════════════════════════════════════════════════════
+   @media (max-width: 768px) — MOBILE BREAKPOINT
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* ── Topbar adjustments ── */
+    .topbar-desktop-only { display: none !important; }
+    .topbar-mobile-only  { display: inline-flex; }
+
+    .setup-brand,
+    .hdr-brand { font-size: 1.15rem; letter-spacing: 3px; }
+
+    .setup-topbar,
+    #header,
+    .adv-topbar { padding: 0 14px; }
+
+    /* sim header hides route-title text on small screens (keep brand only) */
+    #header .hdr-route { display: none; }
+
+    /* adv topbar step indicator smaller */
+    .adv-topbar-step { font-size: .55rem; letter-spacing: 1.5px; }
+
+    /* ── Show mobile reorder buttons on stop cards, hide drag handle ── */
+    .stop-card .stop-handle { display: none; }
+    .stop-card .stop-reorder { display: flex; }
+    /* Drag is disabled on touch (we use up/down buttons) */
+    .stop-card { cursor: default; }
+
+    /* ── Bottom-sheet defaults (smaller peek for tiny screens) ── */
+    :root {
+        --bsheet-peek: 92px;
+        --bsheet-half: 52svh;
+        --bsheet-full: 92svh;
+    }
+
+    .mobile-only { display: flex; }
+
+    /* ─────────── SETUP SCREEN MOBILE ─────────── */
+
+    /* Map: leave room at bottom for the peek state of the sheet */
+    #setup-map { /* stays inset:0 — sheet floats over map */ }
+
+    /* The shell becomes a bottom-sheet */
+    #setup-mobile-shell {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 600;
+        display: flex; flex-direction: column;
+        background: rgba(8,10,16,.92);
+        border-top: 1px solid var(--border);
+        backdrop-filter: blur(16px) saturate(1.3);
+        box-shadow: 0 -16px 40px rgba(0,0,0,.6);
+        height: var(--bsheet-peek);
+        transition: height .32s cubic-bezier(.32,.72,0,1);
+        overflow: hidden;
+    }
+    #setup-mobile-shell::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 3px);
+        z-index: 0;
+    }
+    #setup-mobile-shell::after {
+        content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 70%, transparent);
+        box-shadow: 0 0 8px var(--accent-glow); opacity: .85;
+        z-index: 1;
+    }
+    #setup-mobile-shell > * { position: relative; z-index: 2; }
+    #setup-mobile-shell[data-state="peek"]  { height: var(--bsheet-peek); }
+    #setup-mobile-shell[data-state="half"]  { height: var(--bsheet-half); }
+    #setup-mobile-shell[data-state="full"]  { height: var(--bsheet-full); }
+    #setup-mobile-shell[data-dragging="true"] { transition: none; }
+
+    /* Drag handle */
+    #setup-mobile-shell .bsheet-handle-area {
+        flex-shrink: 0; padding: 8px 0 6px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: grab; touch-action: none;
+    }
+    #setup-mobile-shell .bsheet-handle-area:active { cursor: grabbing; }
+    #setup-mobile-shell .bsheet-handle {
+        width: 38px; height: 4px; border-radius: 2px;
+        background: var(--accent); box-shadow: 0 0 6px var(--accent-glow);
+        opacity: .85; transition: opacity .2s;
+    }
+
+    /* Peek row */
+    .setup-peek-row {
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 6px 16px 12px;
+    }
+    .setup-peek-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .setup-peek-lbl {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: .65rem; letter-spacing: 2px; color: var(--accent); text-transform: uppercase;
+    }
+    .setup-peek-count {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.05rem; letter-spacing: 1.5px; color: var(--text);
+    }
+    #btn-next-peek {
+        font-size: .75rem; letter-spacing: 2.5px; padding: 9px 16px;
+    }
+
+    /* Body wrapper becomes scrollable column at half/full */
+    .setup-mobile-body {
+        flex: 1; min-height: 0;
+        display: flex !important; flex-direction: column;
+        overflow-y: auto; overflow-x: hidden;
+        gap: 12px; padding: 0 16px 8px;
+        scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .setup-mobile-body::-webkit-scrollbar { width: 4px; }
+    .setup-mobile-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Hide peek row at half/full */
+    #setup-mobile-shell[data-state="half"] .setup-peek-row,
+    #setup-mobile-shell[data-state="full"] .setup-peek-row { display: none; }
+
+    /* Hide dock contents + bottom pill at peek */
+    #setup-mobile-shell[data-state="peek"] .setup-mobile-body,
+    #setup-mobile-shell[data-state="peek"] .setup-bottom-pill { display: none !important; }
+
+    /* Override dock positioning for mobile — they become normal flow inside body */
+    .setup-dock-add,
+    .setup-dock-route {
+        position: relative !important;
+        top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+        width: 100% !important;
+        padding: 14px 14px;
+        animation: none; /* reset desktop entry animations */
+    }
+    .setup-dock-add::after, .setup-dock-route::after { display: none; }
+
+    /* Tour name block: hide at half, show at full */
+    #setup-mobile-shell[data-state="half"] .setup-tour-name-block { display: none; }
+
+    /* Stop list grows naturally inside body */
+    .setup-stop-list { flex: none; max-height: none; }
+
+    /* Bottom pill becomes flush bottom of sheet */
+    #setup-mobile-shell .setup-bottom-pill {
+        position: relative !important;
+        left: auto !important; bottom: auto !important;
+        transform: none !important;
+        margin: 0; padding: 10px 16px;
+        background: rgba(6,8,12,.92);
+        border-top: 1px solid var(--border);
+        box-shadow: none;
+        flex-shrink: 0; flex-direction: row;
+        animation: none;
+    }
+    #setup-mobile-shell .setup-bottom-pill::after { display: none; }
+    #setup-mobile-shell .setup-bottom-pill button { flex: 1; }
+
+    /* Search dropdown z-index inside sheet */
+    .search-dropdown { z-index: 700; }
+
+    /* ─────────── ADV SCREEN MOBILE TWEAKS ─────────── */
+    .adv-content { padding: 70px 14px 110px; gap: 12px; }
+    .adv-bottom-pill { bottom: 14px; padding: 8px; }
+    .adv-bottom-pill button { font-size: .65rem; padding: 8px 12px; }
+
+    /* ─────────── SIM SCREEN MOBILE ───────────
+       Mapa na całym ekranie, prawy panel staje się bottom-sheetem
+       (BottomSheet w main.js zarządza data-state). */
+    #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        height: 100vh;
+        height: 100dvh;
+    }
+    /* Zostaw miejsce na "peek" sheeta, by pasek postępu był widoczny */
+    #main-panel { padding-bottom: var(--bsheet-peek); }
+    #controls-bottom { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+
+    #right-panel {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+        z-index: 1500;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -16px 40px rgba(0,0,0,.6);
+        height: var(--bsheet-peek);
+        transition: height .32s cubic-bezier(.32,.72,0,1);
+        animation: none;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #right-panel::after { display: none; }   /* pionowa linia akcentu — zbędna */
+    #right-panel[data-state="peek"]  { height: var(--bsheet-peek); }
+    #right-panel[data-state="half"]  { height: var(--bsheet-half); }
+    #right-panel[data-state="full"]  { height: var(--bsheet-full); }
+    #right-panel[data-dragging="true"] { transition: none; }
+
+    /* W stanie peek widać uchwyt + nagłówek (START/RESET) */
+    #right-panel[data-state="peek"] #stats-overlay,
+    #right-panel[data-state="peek"] #stop-list,
+    #right-panel[data-state="peek"] #export-panel { display: none; }
+
+    /* Statystyki ciaśniej na małych ekranach */
+    #stats-overlay { padding: 10px; gap: 5px; }
+    .stat-box.highlight .val { font-size: 2rem; }
+
+    /* Większe cele dotykowe kontrolek prędkości */
+    .speed-controls .btn-icon { padding: 8px 14px; font-size: .85rem; }
+    #playBtn { padding: 10px 16px; }
+    #resetBtn { padding: 9px 12px; }
+}
